@@ -1120,7 +1120,22 @@ const PayrollManagement: React.FC = () => {
           </Button>
         }
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(_changed, all) => {
+            const gross =
+              Number(all.basic_salary || 0) +
+              Number(all.housing_allowance || 0) +
+              Number(all.transportation_allowance || 0) +
+              Number(all.lunch_allowance || 0) +
+              Number(all.other_allowances || 0) +
+              Number(all.overtime_payment || 0) +
+              Number(all.bonus || 0) +
+              Number(all.double_ticket_payment || 0);
+            form.setFieldsValue({ gross_salary: parseFloat(gross.toFixed(2)) });
+          }}
+        >
           {!editingPayslip && (
             <Form.Item
               label="Employee"

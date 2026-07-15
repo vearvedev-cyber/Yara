@@ -31,6 +31,8 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
   const [loading, setLoading] = useState(false);
   const [netCalcLoading, setNetCalcLoading] = useState(false);
   const [netCalcResult, setNetCalcResult] = useState<any>(null);
+  const [liveGross, setLiveGross] = useState(0);
+  const [liveNet, setLiveNet] = useState(0);
   const MAX_SALARY = 9999999999999.99;
 
   // Salary split ratios — updated from net-calc API result; defaults match backend
@@ -62,15 +64,15 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     }
   };
 
-  // Helper: apply net-calc result to form fields and store ratios
-  const applyNetCalcResult = (data: any) => {
+  // Helper: apply net-calc result to form fields, store ratios, update live summary
+  const applyNetCalcResult = (data: any, enteredNet?: number) => {
     const g = Number(data.gross_salary);
     if (g > 0) {
       ratiosRef.current = {
-        basic:    Number(data.basic_salary)            / g,
-        housing:  Number(data.housing_allowance)       / g,
-        transport: Number(data.transportation_allowance) / g,
-        lunch:    Number(data.lunch_allowance)         / g,
+        basic:     Number(data.basic_salary)              / g,
+        housing:   Number(data.housing_allowance)         / g,
+        transport: Number(data.transportation_allowance)  / g,
+        lunch:     Number(data.lunch_allowance)           / g,
       };
     }
     autoCalcRef.current = true;
@@ -81,6 +83,8 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       lunch:          data.lunch_allowance,
     });
     setTimeout(() => { autoCalcRef.current = false; }, 0);
+    setLiveGross(g);
+    setLiveNet(enteredNet ?? g * 0.7);
   };
 
   // onValuesChange handler — fires for any field change
@@ -96,7 +100,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
         });
         const data = response.data;
         setNetCalcResult(data);
-        applyNetCalcResult(data);
+        applyNetCalcResult(data, Number(allValues.net));
       } catch (e: any) {
         console.warn('Could not auto-calculate from net:', e.message);
       } finally {
@@ -110,15 +114,27 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       const r = ratiosRef.current;
       if (r.basic > 0) {
         const newGross = Number(allValues.basic) / r.basic;
+        const newHousing = parseFloat((newGross * r.housing).toFixed(2));
+        const newTransport = parseFloat((newGross * r.transport).toFixed(2));
+        const newLunch = parseFloat((newGross * r.lunch).toFixed(2));
         autoCalcRef.current = true;
         form.setFieldsValue({
-          housing:        parseFloat((newGross * r.housing).toFixed(2)),
-          transportation: parseFloat((newGross * r.transport).toFixed(2)),
-          lunch:          parseFloat((newGross * r.lunch).toFixed(2)),
+          housing:        newHousing,
+          transportation: newTransport,
+          lunch:          newLunch,
         });
         setTimeout(() => { autoCalcRef.current = false; }, 0);
+        setLiveGross(newGross);
+        setLiveNet(newGross * 0.7);
+        return;
       }
     }
+
+    // Any other component changed → recompute gross from allValues
+    const g = Number(allValues.basic || 0) + Number(allValues.housing || 0) +
+              Number(allValues.transportation || 0) + Number(allValues.lunch || 0);
+    setLiveGross(g);
+    if (!allValues.net) setLiveNet(g * 0.7);
   };
 
   useEffect(() => {
@@ -135,9 +151,15 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
         lunch: entry.lunch,
         net: entry.net,
       });
+      const g = Number(entry.basic || 0) + Number(entry.housing || 0) +
+                Number(entry.transportation || 0) + Number(entry.lunch || 0);
+      setLiveGross(g);
+      setLiveNet(entry.net || g * 0.7);
     } else {
       form.resetFields();
       form.setFieldsValue({ currency: 'ZMW' });
+      setLiveGross(0);
+      setLiveNet(0);
     }
   }, [entry, visible, form]);
 
@@ -241,20 +263,6 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     }
   };
 
-  // Reactive watchers — re-render summary whenever any field changes
-  const basicWatch       = Form.useWatch('basic', form);
-  const housingWatch     = Form.useWatch('housing', form);
-  const transportWatch   = Form.useWatch('transportation', form);
-  const lunchWatch       = Form.useWatch('lunch', form);
-  const netWatch         = Form.useWatch('net', form);
-
-  const basic          = Number(basicWatch || 0);
-  const housing        = Number(housingWatch || 0);
-  const transportation = Number(transportWatch || 0);
-  const lunch          = Number(lunchWatch || 0);
-  const gross          = basic + housing + transportation + lunch;
-  const netInput       = netWatch;
-  const net            = netInput ? Number(netInput) : gross * 0.7;
 
   return (
     <Modal
@@ -380,7 +388,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
               <div>
                 <strong>Gross Pay:</strong>
                 <div style={{ fontSize: '18px', color: '#1890ff', marginTop: 4 }}>
-                  K{gross.toFixed(2)}
+                  K{liveGross.toFixed(2)}
                 </div>
               </div>
             </Col>
@@ -388,13 +396,13 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
               <div>
                 <strong>Net Pay (Est.):</strong>
                 <div style={{ fontSize: '18px', color: '#52c41a', marginTop: 4 }}>
-                  K{net.toFixed(2)}
+                  K{liveNet.toFixed(2)}
                 </div>
               </div>
             </Col>
           </Row>
           <div style={{ marginTop: 12, fontSize: '12px', color: '#666' }}>
-            {netInput
+            {netCalcResult
               ? 'Net pay entered by user. Components calculated from net.'
               : 'Note: Net pay estimate assumes ~30% deductions (NAPSA, PAYE, NHIMA). Actual net will be calculated in payslip.'}
           </div>
