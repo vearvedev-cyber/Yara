@@ -102,6 +102,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       setTimeout(() => { autoCalcRef.current = false; }, 0);
       setLiveGross(newGross);
       setLiveNet(newGross * 0.7);
+      if (netCalcResult) setNetCalcResult({ ...netCalcResult, gross_salary: newGross });
     } else {
       const h = Number(form.getFieldValue('housing') || 0);
       const t = Number(form.getFieldValue('transportation') || 0);
