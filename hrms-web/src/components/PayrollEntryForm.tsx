@@ -87,11 +87,46 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     setLiveNet(enteredNet ?? g * 0.7);
   };
 
-  // onValuesChange handler — fires for any field change
+  // Direct onChange for basic salary — updates allowances proportionally and refreshes summary
+  const handleBasicChange = (val: number | null) => {
+    if (autoCalcRef.current) return;
+    const basic = Number(val || 0);
+    const r = ratiosRef.current;
+    if (basic > 0 && r.basic > 0) {
+      const newGross = basic / r.basic;
+      const newHousing = parseFloat((newGross * r.housing).toFixed(2));
+      const newTransport = parseFloat((newGross * r.transport).toFixed(2));
+      const newLunch = parseFloat((newGross * r.lunch).toFixed(2));
+      autoCalcRef.current = true;
+      form.setFieldsValue({ housing: newHousing, transportation: newTransport, lunch: newLunch });
+      setTimeout(() => { autoCalcRef.current = false; }, 0);
+      setLiveGross(newGross);
+      setLiveNet(newGross * 0.7);
+    } else {
+      const h = Number(form.getFieldValue('housing') || 0);
+      const t = Number(form.getFieldValue('transportation') || 0);
+      const l = Number(form.getFieldValue('lunch') || 0);
+      const g = basic + h + t + l;
+      setLiveGross(g);
+      if (!form.getFieldValue('net')) setLiveNet(g * 0.7);
+    }
+  };
+
+  // Direct onChange for housing / transportation / lunch — recomputes gross sum
+  const handleComponentChange = () => {
+    if (autoCalcRef.current) return;
+    const basic = Number(form.getFieldValue('basic') || 0);
+    const housing = Number(form.getFieldValue('housing') || 0);
+    const transportation = Number(form.getFieldValue('transportation') || 0);
+    const lunch = Number(form.getFieldValue('lunch') || 0);
+    const g = basic + housing + transportation + lunch;
+    setLiveGross(g);
+    if (!form.getFieldValue('net')) setLiveNet(g * 0.7);
+  };
+
+  // onValuesChange — only used for net salary API trigger now
   const handleNetChange = async (changedValues: any, allValues: any) => {
     if (autoCalcRef.current) return;
-
-    // Net changed → recalculate all components from net via API
     if ('net' in changedValues && Number(allValues.net) > 0) {
       try {
         setNetCalcLoading(true);
@@ -106,35 +141,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       } finally {
         setNetCalcLoading(false);
       }
-      return;
     }
-
-    // Basic changed manually → recalculate allowances using stored ratios
-    if ('basic' in changedValues && Number(allValues.basic) > 0) {
-      const r = ratiosRef.current;
-      if (r.basic > 0) {
-        const newGross = Number(allValues.basic) / r.basic;
-        const newHousing = parseFloat((newGross * r.housing).toFixed(2));
-        const newTransport = parseFloat((newGross * r.transport).toFixed(2));
-        const newLunch = parseFloat((newGross * r.lunch).toFixed(2));
-        autoCalcRef.current = true;
-        form.setFieldsValue({
-          housing:        newHousing,
-          transportation: newTransport,
-          lunch:          newLunch,
-        });
-        setTimeout(() => { autoCalcRef.current = false; }, 0);
-        setLiveGross(newGross);
-        setLiveNet(newGross * 0.7);
-        return;
-      }
-    }
-
-    // Any other component changed → recompute gross from allValues
-    const g = Number(allValues.basic || 0) + Number(allValues.housing || 0) +
-              Number(allValues.transportation || 0) + Number(allValues.lunch || 0);
-    setLiveGross(g);
-    if (!allValues.net) setLiveNet(g * 0.7);
   };
 
   useEffect(() => {
@@ -352,32 +359,20 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
           </Space>
         </Card>
 
-        <Form.Item
-          label="Basic Salary"
-          name="basic"
-        >
-          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} />
+        <Form.Item label="Basic Salary" name="basic">
+          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} onChange={handleBasicChange} />
         </Form.Item>
 
-        <Form.Item
-          label="Housing Allowance"
-          name="housing"
-        >
-          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} />
+        <Form.Item label="Housing Allowance" name="housing">
+          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} onChange={handleComponentChange} />
         </Form.Item>
 
-        <Form.Item
-          label="Transportation"
-          name="transportation"
-        >
-          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} />
+        <Form.Item label="Transportation" name="transportation">
+          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} onChange={handleComponentChange} />
         </Form.Item>
 
-        <Form.Item
-          label="Lunch Allowance"
-          name="lunch"
-        >
-          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} />
+        <Form.Item label="Lunch Allowance" name="lunch">
+          <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} onChange={handleComponentChange} />
         </Form.Item>
 
         <Divider>Summary</Divider>
