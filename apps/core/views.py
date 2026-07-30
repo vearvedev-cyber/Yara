@@ -226,11 +226,24 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def portfolio_stats(self, request):
         """Get portfolio overview stats for all client workspaces"""
         from apps.hcm.models import Employee
-        
+
         memberships = WorkspaceMembership.objects.filter(
             user=request.user,
             is_active=True
         ).select_related('workspace')
+
+        # Superusers with no memberships yet: auto-join all active workspaces
+        if not memberships.exists() and request.user.is_superuser:
+            for i, ws in enumerate(Workspace.objects.filter(is_active=True)):
+                WorkspaceMembership.objects.get_or_create(
+                    user=request.user,
+                    workspace=ws,
+                    defaults={'role': 'OWNER', 'is_default': i == 0, 'is_active': True},
+                )
+            memberships = WorkspaceMembership.objects.filter(
+                user=request.user,
+                is_active=True,
+            ).select_related('workspace')
 
         clients_data = []
         total_active_employees = 0

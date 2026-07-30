@@ -25,6 +25,20 @@ class WorkspaceAwareTokenObtainPairSerializer(TokenObtainPairSerializer):
             user=user,
             is_active=True
         ).select_related('workspace').prefetch_related('workspace')
+
+        # Superuser with no memberships: auto-join all active workspaces so login works
+        if not memberships.exists() and user.is_superuser:
+            from apps.core.models import Workspace
+            for i, ws in enumerate(Workspace.objects.filter(is_active=True)):
+                WorkspaceMembership.objects.get_or_create(
+                    user=user,
+                    workspace=ws,
+                    defaults={'role': 'OWNER', 'is_default': i == 0, 'is_active': True},
+                )
+            memberships = WorkspaceMembership.objects.filter(
+                user=user,
+                is_active=True,
+            ).select_related('workspace')
         
         # Build comprehensive workspace data for frontend (avoid second API call)
         workspace_list = []
