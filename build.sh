@@ -35,27 +35,36 @@ if email and password:
         user = User.objects.get(email=email)
         print(f'Superuser {email} already exists.')
 
-# Create default workspace
+# Ensure user has at least one workspace membership
 if user:
-    ws, ws_created = Workspace.objects.get_or_create(
-        code=ws_code,
-        defaults={'name': ws_name, 'workspace_type': 'COMPANY', 'is_active': True, 'created_by': user}
-    )
-    if ws_created:
-        print(f'Workspace {ws_name} created.')
+    existing_membership = WorkspaceMembership.objects.filter(user=user, is_active=True).first()
+    if existing_membership:
+        print(f'User already has membership in: {existing_membership.workspace.name}')
     else:
-        print(f'Workspace {ws_name} already exists.')
+        # Try to attach to any existing workspace first
+        ws = Workspace.objects.filter(is_active=True).order_by('id').first()
+        if not ws:
+            # No workspaces at all — create one
+            ws, _ = Workspace.objects.get_or_create(
+                code=ws_code,
+                defaults={'name': ws_name, 'workspace_type': 'COMPANY', 'is_active': True, 'created_by': user}
+            )
+            print(f'Workspace {ws.name} created.')
+        else:
+            print(f'Using existing workspace: {ws.name}')
 
-    # Create membership
-    mem, mem_created = WorkspaceMembership.objects.get_or_create(
-        user=user,
-        workspace=ws,
-        defaults={'role': 'OWNER', 'is_default': True, 'is_active': True}
-    )
-    if mem_created:
-        print(f'Membership created: {email} -> {ws_name} (OWNER, default).')
-    else:
-        print(f'Membership already exists.')
+        mem, mem_created = WorkspaceMembership.objects.get_or_create(
+            user=user,
+            workspace=ws,
+            defaults={'role': 'OWNER', 'is_default': True, 'is_active': True}
+        )
+        if mem_created:
+            print(f'Membership created: {email} -> {ws.name} (OWNER, default).')
+        else:
+            if not mem.is_default:
+                mem.is_default = True
+                mem.save(update_fields=['is_default'])
+            print(f'Membership already exists.')
 else:
     print('Skipping workspace setup — SUPERUSER_EMAIL/PASSWORD not set.')
 "
