@@ -87,7 +87,18 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     setLiveNet(enteredNet ?? g * 0.7);
   };
 
-  // Direct onChange for basic salary — updates allowances proportionally and refreshes summary
+  // Recomputes both liveGross and liveNet from current form values
+  const recompute = (overrideBasic?: number) => {
+    const basic = overrideBasic ?? Number(form.getFieldValue('basic') || 0);
+    const housing = Number(form.getFieldValue('housing') || 0);
+    const transportation = Number(form.getFieldValue('transportation') || 0);
+    const lunch = Number(form.getFieldValue('lunch') || 0);
+    const g = basic + housing + transportation + lunch;
+    setLiveGross(g);
+    setLiveNet(g * 0.7);
+  };
+
+  // Direct onChange for basic salary — updates allowances + net proportionally and refreshes summary
   const handleBasicChange = (val: number | null) => {
     if (autoCalcRef.current) return;
     const basic = Number(val || 0);
@@ -97,33 +108,24 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       const newHousing = parseFloat((newGross * r.housing).toFixed(2));
       const newTransport = parseFloat((newGross * r.transport).toFixed(2));
       const newLunch = parseFloat((newGross * r.lunch).toFixed(2));
+      // Keep net/gross ratio so net input and summary both update proportionally
+      const netRatio = liveGross > 0 ? liveNet / liveGross : 0.7;
+      const newNet = parseFloat((newGross * netRatio).toFixed(2));
       autoCalcRef.current = true;
-      // Clear net input — user is now in component mode
-      form.setFieldsValue({ housing: newHousing, transportation: newTransport, lunch: newLunch, net: null });
+      form.setFieldsValue({ housing: newHousing, transportation: newTransport, lunch: newLunch, net: newNet });
       setTimeout(() => { autoCalcRef.current = false; }, 0);
       setLiveGross(newGross);
-      setLiveNet(newGross * 0.7);
-      setNetCalcResult(null);
+      setLiveNet(newNet);
+      if (netCalcResult) setNetCalcResult({ ...netCalcResult, gross_salary: newGross });
     } else {
-      const h = Number(form.getFieldValue('housing') || 0);
-      const t = Number(form.getFieldValue('transportation') || 0);
-      const l = Number(form.getFieldValue('lunch') || 0);
-      const g = basic + h + t + l;
-      setLiveGross(g);
-      setLiveNet(g * 0.7);
+      recompute(basic);
     }
   };
 
-  // Direct onChange for housing / transportation / lunch — recomputes gross sum
+  // Direct onChange for housing / transportation / lunch — recomputes both gross and net
   const handleComponentChange = () => {
     if (autoCalcRef.current) return;
-    const basic = Number(form.getFieldValue('basic') || 0);
-    const housing = Number(form.getFieldValue('housing') || 0);
-    const transportation = Number(form.getFieldValue('transportation') || 0);
-    const lunch = Number(form.getFieldValue('lunch') || 0);
-    const g = basic + housing + transportation + lunch;
-    setLiveGross(g);
-    if (!form.getFieldValue('net')) setLiveNet(g * 0.7);
+    recompute();
   };
 
   // onValuesChange — only used for net salary API trigger now
