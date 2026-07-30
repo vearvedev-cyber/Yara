@@ -98,18 +98,19 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       const newTransport = parseFloat((newGross * r.transport).toFixed(2));
       const newLunch = parseFloat((newGross * r.lunch).toFixed(2));
       autoCalcRef.current = true;
-      form.setFieldsValue({ housing: newHousing, transportation: newTransport, lunch: newLunch });
+      // Clear net input — user is now in component mode
+      form.setFieldsValue({ housing: newHousing, transportation: newTransport, lunch: newLunch, net: null });
       setTimeout(() => { autoCalcRef.current = false; }, 0);
       setLiveGross(newGross);
       setLiveNet(newGross * 0.7);
-      if (netCalcResult) setNetCalcResult({ ...netCalcResult, gross_salary: newGross });
+      setNetCalcResult(null);
     } else {
       const h = Number(form.getFieldValue('housing') || 0);
       const t = Number(form.getFieldValue('transportation') || 0);
       const l = Number(form.getFieldValue('lunch') || 0);
       const g = basic + h + t + l;
       setLiveGross(g);
-      if (!form.getFieldValue('net')) setLiveNet(g * 0.7);
+      setLiveNet(g * 0.7);
     }
   };
 
