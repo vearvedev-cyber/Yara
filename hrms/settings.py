@@ -402,6 +402,18 @@ if not DEBUG:
     # Trust proxy headers from Render
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Cloudinary Configuration
+USE_CLOUDINARY = config('USE_CLOUDINARY', default=False, cast=bool)
+if USE_CLOUDINARY:
+    import cloudinary
+    CLOUDINARY_URL = config('CLOUDINARY_URL', default='')
+    cloudinary.config(cloudinary_url=CLOUDINARY_URL)
+    INSTALLED_APPS += ['cloudinary_storage', 'cloudinary']
+    STORAGES['default'] = {
+        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    }
+    MEDIA_URL = '/media/'
+
 # AWS S3 Configuration
 # Use S3 for file storage in production (Render has ephemeral storage)
 USE_S3 = config('USE_S3', default=False, cast=bool)
