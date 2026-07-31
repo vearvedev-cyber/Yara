@@ -159,7 +159,7 @@ export default function LeaveDashboard() {
     { title: 'Work Date', dataIndex: 'work_date', key: 'work_date', width: 120 },
     { title: 'Hours', dataIndex: 'hours_worked', key: 'hours_worked', width: 80, render: (val) => `${val}h` },
     { title: 'Reason', dataIndex: 'reason', key: 'reason', ellipsis: true },
-    { title: 'Payment', key: 'payment', width: 120, render: (_, r) => r.calculated_payment ? `K${r.calculated_payment.toFixed(2)}` : r.calculated_amount ? `K${r.calculated_amount.toFixed(2)}` : '-' },
+    { title: 'Payment', key: 'payment', width: 120, render: (_, r) => r.calculated_payment ? `K${Number(r.calculated_payment).toFixed(2)}` : r.calculated_amount ? `K${Number(r.calculated_amount).toFixed(2)}` : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (val) => <Tag color={leaveStatusColor[val] || 'default'}>{val}</Tag> },
     {
       title: 'Actions', key: 'actions', width: 250,
@@ -644,7 +644,7 @@ export default function LeaveDashboard() {
             <Descriptions.Item label="Work Date">{selectedDoubleTicket.work_date}</Descriptions.Item>
             <Descriptions.Item label="Hours Worked">{selectedDoubleTicket.hours_worked}h</Descriptions.Item>
             <Descriptions.Item label="Reason">{selectedDoubleTicket.reason || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Payment">{selectedDoubleTicket.calculated_payment ? `K${selectedDoubleTicket.calculated_payment.toFixed(2)}` : selectedDoubleTicket.calculated_amount ? `K${selectedDoubleTicket.calculated_amount.toFixed(2)}` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Payment">{selectedDoubleTicket.calculated_payment ? `K${Number(selectedDoubleTicket.calculated_payment).toFixed(2)}` : selectedDoubleTicket.calculated_amount ? `K${Number(selectedDoubleTicket.calculated_amount).toFixed(2)}` : '-'}</Descriptions.Item>
             <Descriptions.Item label="Status"><Tag color={leaveStatusColor[selectedDoubleTicket.status]}>{selectedDoubleTicket.status}</Tag></Descriptions.Item>
           </Descriptions>
         )}
