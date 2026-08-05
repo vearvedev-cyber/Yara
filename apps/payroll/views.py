@@ -786,7 +786,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
             'NHIMA Account Number',
             'Year',
             'Month',
-            'SSN',
+            'NHIMA Number',
             'NRC',
             'Surname',
             'First Name',
@@ -794,7 +794,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
             'Employee Contribution',
             'Employer Contribution'
         ]
-        
+
         # Write headers with formatting
         ws.append(headers)
         for cell in ws[1]:
@@ -802,7 +802,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
             cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
             cell.font = Font(bold=True, color="FFFFFF", size=11)
             cell.alignment = Alignment(horizontal='center', vertical='center')
-        
+
         # Write employee data
         for p in payslips:
             emp = p.employee
@@ -810,12 +810,12 @@ class PayslipViewSet(viewsets.ModelViewSet):
             name_parts = emp.full_name.split()
             surname = name_parts[-1] if name_parts else ''
             first_name = name_parts[0] if len(name_parts) > 0 else ''
-            
+
             ws.append([
                 nhima_account,
                 year,
                 month,
-                emp.nhima or emp.sss_number,
+                emp.nhima or '',
                 emp.nrc,
                 surname.upper(),
                 first_name.upper(),
