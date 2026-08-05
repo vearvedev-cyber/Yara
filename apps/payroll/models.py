@@ -769,26 +769,36 @@ class PAYEReturn(models.Model):
             employee__workspace=self.workspace,
             is_active=True,
             is_processed=True
-        ).select_related('employee')
-        
+        ).select_related('employee', 'employee__engagement', 'employee__engagement__contract_type')
+
         rows = []
         for payslip in payslips:
             employee = payslip.employee
-            
+
             # Chargeable amount = Gross - NAPSA
             chargeable = payslip.gross_salary - payslip.napsa_employee
-            
+
             # Tax credit (basic personal relief)
             tax_credit = Decimal('30600')
-            
+
             # Tax payable is already calculated in the payslip
             tax_payable = payslip.paye_tax
-            
+
+            # Use engagement contract type (set by HR); fall back to employee classifier
+            engagement = getattr(employee, 'engagement', None)
+            engagement_contract = engagement and engagement.contract_type
+            if engagement_contract:
+                employee_nature = engagement_contract.get_name_display()
+                contractor_type = engagement_contract.name
+            else:
+                employee_nature = employee.get_contractor_type_display()
+                contractor_type = employee.contractor_type
+
             row = {
                 'tpin': employee.tpin or '',
                 'full_name': employee.full_name,
-                'employee_nature': employee.get_contractor_type_display(),  # Human readable
-                'contractor_type': employee.contractor_type,  # Machine readable
+                'employee_nature': employee_nature,
+                'contractor_type': contractor_type,
                 'gross_pay': payslip.gross_salary,
                 'chargeable_amount': chargeable,
                 'tax_credit': tax_credit,
