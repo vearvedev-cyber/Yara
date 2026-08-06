@@ -43,8 +43,8 @@ export default function Medicals() {
   };
 
   // Filter states
-  const [pendingFilters, setPendingFilters] = useState<{ employee?: string; type?: string; status?: string }>({});
-  const [appliedFilters, setAppliedFilters] = useState<{ employee?: string; type?: string; status?: string }>({});
+  const [pendingFilters, setPendingFilters] = useState<{ employee?: string; type?: string; status?: string; expiry?: string }>({});
+  const [appliedFilters, setAppliedFilters] = useState<{ employee?: string; type?: string; status?: string; expiry?: string }>({});
 
   const { data: medicals, isLoading } = useQuery({
     queryKey: ['medicals', workspaceId, appliedFilters],
@@ -186,12 +186,24 @@ export default function Medicals() {
   };
 
   const rows = useMemo(() => {
-    return (medicals || []).map((m: any, idx: number) => ({
+    let data = (medicals || []).map((m: any, idx: number) => ({
       ...m,
       key: m.id || idx,
-      sn: idx + 1,
     }));
-  }, [medicals]);
+
+    if (appliedFilters.expiry) {
+      data = data.filter((m: any) => {
+        const exp = m.expiry_date;
+        if (appliedFilters.expiry === 'EXPIRED') return isExpired(exp);
+        if (appliedFilters.expiry === 'EXPIRING_SOON') return !isExpired(exp) && isExpiringsoon(exp);
+        if (appliedFilters.expiry === 'VALID') return exp && !isExpired(exp) && !isExpiringsoon(exp);
+        if (appliedFilters.expiry === 'NO_EXPIRY') return !exp;
+        return true;
+      });
+    }
+
+    return data.map((m: any, idx: number) => ({ ...m, sn: idx + 1 }));
+  }, [medicals, appliedFilters.expiry]);
 
   const columns = [
     {
@@ -385,6 +397,18 @@ export default function Medicals() {
             <Select.Option value="CLEARED">Cleared</Select.Option>
             <Select.Option value="RESTRICTED">Restricted</Select.Option>
             <Select.Option value="NOT_CLEARED">Not Cleared</Select.Option>
+          </Select>
+          <Select
+            allowClear
+            placeholder="Filter by expiry"
+            style={{ width: 180 }}
+            value={pendingFilters.expiry || undefined}
+            onChange={(val) => setPendingFilters({ ...pendingFilters, expiry: val })}
+          >
+            <Select.Option value="EXPIRED">Expired</Select.Option>
+            <Select.Option value="EXPIRING_SOON">Expiring Soon (30 days)</Select.Option>
+            <Select.Option value="VALID">Valid</Select.Option>
+            <Select.Option value="NO_EXPIRY">No Expiry Date</Select.Option>
           </Select>
           <Button
             type="primary"
