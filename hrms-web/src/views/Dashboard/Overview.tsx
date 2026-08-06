@@ -305,18 +305,66 @@ export default function Overview() {
             {!medicals || medicals.length === 0 ? (
               <div className="text-center" style={{ color: helperTextColor, padding: '24px 0' }}>No medical examination data available</div>
             ) : (
-              <div style={{ display: 'grid', gap: 8 }}>
-                {medicals.slice(0, 5).map((item: any) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <span style={{ color: helperTextColor }}>
-                      {item.employee_name || 'Unknown'}{' '}
-                      <span style={{ opacity: 0.7 }}>• {item.medical_type_name || item.medical_type || 'Medical'}</span>
-                    </span>
-                    <Tag color={item.status === 'CLEARED' ? 'green' : item.status === 'COMPLETED' ? 'blue' : item.status === 'RESTRICTED' || item.status === 'NOT_CLEARED' ? 'red' : 'orange'}>
-                      {item.status || 'SCHEDULED'}
-                    </Tag>
-                  </div>
-                ))}
+              <div style={{ display: 'grid', gap: 10 }}>
+                {[...medicals]
+                  .sort((a: any, b: any) => {
+                    // Sort: expired first → expiring soon → scheduled → rest
+                    const urgency = (item: any) => {
+                      if (!item.expiry_date) return 3;
+                      const days = dayjs(item.expiry_date).diff(dayjs(), 'day');
+                      if (days < 0) return 0;
+                      if (days <= 30) return 1;
+                      return 2;
+                    };
+                    return urgency(a) - urgency(b);
+                  })
+                  .slice(0, 5)
+                  .map((item: any) => {
+                    const hasExpiry = !!item.expiry_date;
+                    const daysLeft = hasExpiry ? dayjs(item.expiry_date).diff(dayjs(), 'day') : null;
+                    const isExpired = daysLeft !== null && daysLeft < 0;
+                    const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+
+                    let expiryLabel = null;
+                    let expiryColor = '';
+                    if (hasExpiry) {
+                      if (isExpired) {
+                        expiryLabel = `Expired ${Math.abs(daysLeft!)} day${Math.abs(daysLeft!) !== 1 ? 's' : ''} ago`;
+                        expiryColor = '#ff4d4f';
+                      } else if (isExpiringSoon) {
+                        expiryLabel = `Expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
+                        expiryColor = '#fa8c16';
+                      } else {
+                        expiryLabel = `Expires in ${daysLeft} days`;
+                        expiryColor = '#52c41a';
+                      }
+                    } else if (item.scheduled_date) {
+                      const daysToSchedule = dayjs(item.scheduled_date).diff(dayjs(), 'day');
+                      expiryLabel = daysToSchedule >= 0
+                        ? `Scheduled in ${daysToSchedule} day${daysToSchedule !== 1 ? 's' : ''}`
+                        : `Scheduled ${dayjs(item.scheduled_date).format('DD MMM YYYY')}`;
+                      expiryColor = '#1890ff';
+                    }
+
+                    return (
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: helperTextColor, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.employee_name || 'Unknown'}
+                            <span style={{ opacity: 0.6 }}> • {item.medical_type_name || item.medical_type || 'Medical'}</span>
+                          </div>
+                          {expiryLabel && (
+                            <div style={{ fontSize: 11, color: expiryColor, marginTop: 2 }}>
+                              {expiryLabel}
+                            </div>
+                          )}
+                        </div>
+                        <Tag color={item.status === 'CLEARED' ? 'green' : item.status === 'COMPLETED' ? 'blue' : item.status === 'RESTRICTED' || item.status === 'NOT_CLEARED' ? 'red' : 'orange'} style={{ flexShrink: 0 }}>
+                          {item.status || 'SCHEDULED'}
+                        </Tag>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </GlassCard>
