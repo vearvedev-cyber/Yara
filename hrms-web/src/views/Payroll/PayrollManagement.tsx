@@ -308,6 +308,21 @@ const PayrollManagement: React.FC = () => {
     },
   });
 
+  // Bulk apply/remove employer-borne on existing payslips
+  const bulkSetEmployerBorneMutation = useMutation({
+    mutationFn: (data: { year: number; month: number; employer_borne_deductions: boolean }) =>
+      http.post('/api/v1/payroll/payslips/bulk_set_employer_borne/', data),
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ['payslips'] });
+      const updated = response.data?.updated ?? 0;
+      const mode = response.data?.employer_borne_deductions ? 'employer-borne' : 'standard';
+      message.success(`${updated} payslips updated to ${mode} mode`);
+    },
+    onError: (error: any) => {
+      message.error(error.response?.data?.error || 'Failed to update payslips');
+    },
+  });
+
   // Delete payslip mutation
   const deletePayslipMutation = useMutation({
     mutationFn: (payslipId: number) =>
@@ -1021,7 +1036,7 @@ const PayrollManagement: React.FC = () => {
                           >
                             Add Payslip
                           </Button>
-                          <Tooltip title="When ON, all generated payslips will have employer-borne deductions — employees receive full gross. Each employee's individual setting is overridden for this run.">
+                          <Tooltip title="When ON, payslips will use employer-borne deductions — employees receive full gross salary. For new payslips: applies on generate. For existing: click 'Apply to existing'.">
                             <Space style={{ marginRight: 8 }}>
                               <Switch
                                 size="small"
@@ -1033,6 +1048,31 @@ const PayrollManagement: React.FC = () => {
                               </span>
                             </Space>
                           </Tooltip>
+                          {payslipsList.length > 0 && (
+                            <Popconfirm
+                              title={bulkEmployerBorne
+                                ? `Switch all ${payslipsList.length} payslips to employer-borne? Net pay will equal gross for each employee.`
+                                : `Switch all ${payslipsList.length} payslips back to standard deductions? NAPSA, PAYE & NHIMA will be deducted from employee pay.`}
+                              onConfirm={() =>
+                                bulkSetEmployerBorneMutation.mutate({
+                                  year: selectedYear,
+                                  month: selectedMonth,
+                                  employer_borne_deductions: bulkEmployerBorne,
+                                })
+                              }
+                              okText="Yes, apply"
+                              cancelText="Cancel"
+                            >
+                              <Button
+                                style={bulkEmployerBorne
+                                  ? { borderColor: '#fa8c16', color: '#fa8c16', marginRight: 8 }
+                                  : { marginRight: 8 }}
+                                loading={bulkSetEmployerBorneMutation.isPending}
+                              >
+                                Apply to existing ({payslipsList.length})
+                              </Button>
+                            </Popconfirm>
+                          )}
                           <Button
                             type="dashed"
                             onClick={handleBulkCreate}

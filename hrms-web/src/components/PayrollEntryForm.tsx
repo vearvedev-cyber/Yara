@@ -130,23 +130,43 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     recompute();
   };
 
-  // onValuesChange — only used for net salary API trigger now
+  // onValuesChange — triggers on net field change
   const handleNetChange = async (changedValues: any, allValues: any) => {
     if (autoCalcRef.current) return;
-    if ('net' in changedValues && Number(allValues.net) > 0) {
-      try {
-        setNetCalcLoading(true);
-        const response = await http.post('/api/v1/payroll/payslips/calculate_from_net/', {
-          net_salary: allValues.net,
-        });
-        const data = response.data;
-        setNetCalcResult(data);
-        applyNetCalcResult(data, Number(allValues.net));
-      } catch (e: any) {
-        console.warn('Could not auto-calculate from net:', e.message);
-      } finally {
-        setNetCalcLoading(false);
-      }
+    if (!('net' in changedValues) || !(Number(allValues.net) > 0)) return;
+
+    const enteredValue = Number(allValues.net);
+
+    if (employerBorne) {
+      // Employer-borne: entered value IS the gross — just split by ratios, no API needed
+      const r = ratiosRef.current;
+      const gross = enteredValue;
+      const housing = parseFloat((gross * r.housing).toFixed(2));
+      const transport = parseFloat((gross * r.transport).toFixed(2));
+      const lunch = parseFloat((gross * r.lunch).toFixed(2));
+      const basic = parseFloat((gross - housing - transport - lunch).toFixed(2));
+      autoCalcRef.current = true;
+      form.setFieldsValue({ basic, housing, transportation: transport, lunch });
+      setTimeout(() => { autoCalcRef.current = false; }, 0);
+      setLiveGross(gross);
+      setLiveNet(gross);
+      setNetCalcResult(null);
+      return;
+    }
+
+    // Standard mode: back-calculate gross from net via API
+    try {
+      setNetCalcLoading(true);
+      const response = await http.post('/api/v1/payroll/payslips/calculate_from_net/', {
+        net_salary: enteredValue,
+      });
+      const data = response.data;
+      setNetCalcResult(data);
+      applyNetCalcResult(data, enteredValue);
+    } catch (e: any) {
+      console.warn('Could not auto-calculate from net:', e.message);
+    } finally {
+      setNetCalcLoading(false);
     }
   };
 
@@ -368,23 +388,34 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
           />
         </Form.Item>
 
-        <Card size="small" style={{ marginBottom: 16, backgroundColor: '#f0f5ff' }}>
+        <Card size="small" style={{ marginBottom: 16, backgroundColor: employerBorne ? '#fff7e6' : '#f0f5ff', borderColor: employerBorne ? '#fa8c16' : undefined }}>
           <Space orientation="vertical" style={{ width: '100%' }}>
             <Form.Item
-              label={<span style={{ fontWeight: 600, color: '#000' }}>Net Salary (components auto-calculate below)</span>}
+              label={
+                <span style={{ fontWeight: 600, color: '#000' }}>
+                  {employerBorne
+                    ? 'Gross Salary (employee takes home this full amount)'
+                    : 'Net Salary (components auto-calculate below)'}
+                </span>
+              }
               name="net"
               style={{ marginBottom: 0 }}
             >
               <InputNumber prefix="K" precision={2} min={0} max={MAX_SALARY} style={{ width: '100%' }} />
             </Form.Item>
-            {netCalcLoading && <span style={{ fontSize: '12px', color: '#ff7a45' }}>Calculating...</span>}
-            {netCalcResult && (
+            {!employerBorne && netCalcLoading && <span style={{ fontSize: '12px', color: '#ff7a45' }}>Calculating...</span>}
+            {!employerBorne && netCalcResult && (
               <Alert
                 type="success"
                 showIcon
                 title="Auto-calculated"
                 description={`Gross Salary: K${Number(netCalcResult.gross_salary).toFixed(2)}`}
               />
+            )}
+            {employerBorne && (
+              <span style={{ fontSize: '12px', color: '#fa8c16' }}>
+                Employer-borne: entered value is the gross — components split by workspace ratios
+              </span>
             )}
           </Space>
         </Card>

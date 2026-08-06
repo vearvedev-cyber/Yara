@@ -595,6 +595,37 @@ class PayslipViewSet(viewsets.ModelViewSet):
             'payslips': serializer.data
         }, status=status.HTTP_201_CREATED)
     
+    @action(detail=False, methods=['post'])
+    def bulk_set_employer_borne(self, request):
+        """
+        Apply or remove employer-borne deductions on all existing payslips for a period.
+        POST: { "year": 2026, "month": 8, "employer_borne_deductions": true }
+        Recalculates each payslip so net_salary reflects the new mode immediately.
+        """
+        year = request.data.get('year')
+        month = request.data.get('month')
+        employer_borne = bool(request.data.get('employer_borne_deductions', False))
+
+        if not year or not month:
+            return Response({'error': 'year and month are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        payslips = Payslip.objects.filter(
+            period__year=year,
+            period__month=month,
+            is_active=True,
+        )
+        if hasattr(request, 'workspace') and request.workspace:
+            payslips = payslips.filter(employee__workspace=request.workspace)
+
+        updated = 0
+        for payslip in payslips:
+            payslip.employer_borne_deductions = employer_borne
+            payslip.calculate()
+            payslip.save()
+            updated += 1
+
+        return Response({'updated': updated, 'employer_borne_deductions': employer_borne})
+
     @action(detail=False, methods=['get'])
     def remittance_report(self, request):
         """
