@@ -484,15 +484,13 @@ export default function Medicals() {
               placeholder="Select employee"
               showSearch
               filterOption={(input, option: any) =>
-                (option?.children?.toLowerCase() || '').includes(input.toLowerCase())
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
-            >
-              {employees?.map((emp: any) => (
-                <Select.Option key={emp.id} value={emp.id}>
-                  {emp.first_name} {emp.last_name} ({emp.employee_id})
-                </Select.Option>
-              ))}
-            </Select>
+              options={employees?.map((emp: any) => ({
+                value: emp.id,
+                label: `${emp.first_name} ${emp.last_name} (${emp.employee_id})`,
+              }))}
+            />
           </Form.Item>
 
           <Form.Item
