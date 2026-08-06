@@ -1,4 +1,4 @@
-import { Select, DatePicker, Tag, Spin, Row, Col, Button, Input, Progress, Badge } from 'antd';
+import { Select, DatePicker, Tag, Spin, Row, Col, Button, Input, Progress, Badge, Modal, List, Typography } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
@@ -18,6 +18,7 @@ export default function Overview() {
   const isLight = theme === 'light';
   const hasToken = !!localStorage.getItem('access');
   const [workspaceId, setWorkspaceId] = useState<string | null>(() => localStorage.getItem('workspaceId'));
+  const [complianceFilter, setComplianceFilter] = useState<string | null>(null);
   const [pendingDepartment, setPendingDepartment] = useState<number | null>(null);
   const [pendingRange, setPendingRange] = useState<any>(null);
   const [pendingSearch, setPendingSearch] = useState('');
@@ -405,16 +406,33 @@ export default function Overview() {
                 <Col xs={24} sm={18}>
                   <Row gutter={[12, 8]}>
                     {[
-                      { label: 'Active', count: complianceSummary.active, color: 'green' },
-                      { label: 'Permanent', count: complianceSummary.permanent, color: 'blue' },
-                      { label: 'Expiring Soon', count: complianceSummary.expiring_soon, color: 'orange' },
-                      { label: 'Expired', count: complianceSummary.expired, color: 'red' },
+                      { label: 'Active', count: complianceSummary.active, color: '#52c41a', status: 'Active' },
+                      { label: 'Permanent', count: complianceSummary.permanent, color: '#1677ff', status: 'Permanent' },
+                      { label: 'Expiring Soon', count: complianceSummary.expiring_soon, color: '#fa8c16', status: 'Expiring Soon' },
+                      { label: 'Expired', count: complianceSummary.expired, color: '#ff4d4f', status: 'Expired' },
                     ].map((item) => (
                       <Col xs={12} sm={6} key={item.label}>
-                        <div style={{ padding: '10px', background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', borderRadius: 8, textAlign: 'center' }}>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: item.color === 'green' ? '#52c41a' : item.color === 'blue' ? '#1677ff' : item.color === 'orange' ? '#fa8c16' : '#ff4d4f' }}>
-                            {item.count}
-                          </div>
+                        <div
+                          onClick={() => setComplianceFilter(item.status)}
+                          style={{
+                            padding: '10px',
+                            background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                            borderRadius: 8,
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            border: '1px solid transparent',
+                            transition: 'border-color 0.2s, background 0.2s',
+                          }}
+                          onMouseEnter={e => {
+                            (e.currentTarget as HTMLDivElement).style.borderColor = item.color;
+                            (e.currentTarget as HTMLDivElement).style.background = `${item.color}18`;
+                          }}
+                          onMouseLeave={e => {
+                            (e.currentTarget as HTMLDivElement).style.borderColor = 'transparent';
+                            (e.currentTarget as HTMLDivElement).style.background = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)';
+                          }}
+                        >
+                          <div style={{ fontSize: 22, fontWeight: 800, color: item.color }}>{item.count}</div>
                           <div style={{ fontSize: 11, color: helperTextColor }}>{item.label}</div>
                         </div>
                       </Col>
@@ -446,6 +464,85 @@ export default function Overview() {
           </GlassCard>
         </Col>
       </Row>
+
+      {/* Compliance document drill-down modal */}
+      <Modal
+        open={!!complianceFilter}
+        onCancel={() => setComplianceFilter(null)}
+        footer={null}
+        title={
+          <span>
+            <FileProtectOutlined style={{ marginRight: 8 }} />
+            {complianceFilter} Documents
+          </span>
+        }
+        width={620}
+      >
+        {complianceFilter && complianceSummary?.documents && (() => {
+          const filtered = complianceSummary.documents.filter(
+            (d: any) => d.computed_status === complianceFilter
+          );
+          const colorMap: Record<string, string> = {
+            Active: '#52c41a',
+            Permanent: '#1677ff',
+            'Expiring Soon': '#fa8c16',
+            Expired: '#ff4d4f',
+          };
+          const color = colorMap[complianceFilter] || '#888';
+          if (filtered.length === 0) {
+            return (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#888' }}>
+                No {complianceFilter.toLowerCase()} documents.
+              </div>
+            );
+          }
+          return (
+            <List
+              dataSource={filtered}
+              renderItem={(doc: any) => (
+                <List.Item
+                  style={{ padding: '12px 0', borderBottom: '1px solid rgba(128,128,128,0.15)' }}
+                  extra={
+                    <Tag color={
+                      doc.computed_status === 'Active' ? 'green'
+                        : doc.computed_status === 'Permanent' ? 'blue'
+                        : doc.computed_status === 'Expiring Soon' ? 'orange'
+                        : 'red'
+                    }>
+                      {doc.computed_status}
+                    </Tag>
+                  }
+                >
+                  <List.Item.Meta
+                    title={
+                      <Typography.Text strong style={{ color }}>
+                        {doc.document_name || doc.document_type_display || doc.document_type}
+                      </Typography.Text>
+                    }
+                    description={
+                      <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                        {doc.issued_by && <span>Issued by: {doc.issued_by} &nbsp;·&nbsp; </span>}
+                        {doc.reference_number && <span>Ref: {doc.reference_number} &nbsp;·&nbsp; </span>}
+                        {doc.issue_date && <span>Issued: {doc.issue_date} &nbsp;·&nbsp; </span>}
+                        {doc.expiry_date
+                          ? <span style={{ color: doc.computed_status === 'Expired' ? '#ff4d4f' : doc.computed_status === 'Expiring Soon' ? '#fa8c16' : undefined }}>
+                              Expires: {doc.expiry_date}
+                              {doc.days_until_expiry !== null && doc.days_until_expiry >= 0
+                                ? ` (${doc.days_until_expiry}d remaining)`
+                                : doc.days_until_expiry !== null ? ` (${Math.abs(doc.days_until_expiry)}d ago)` : ''}
+                            </span>
+                          : <span>No expiry date</span>
+                        }
+                        {doc.notes && <div style={{ marginTop: 4 }}>{doc.notes}</div>}
+                      </div>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          );
+        })()}
+      </Modal>
     </div>
   );
 }
