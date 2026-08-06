@@ -87,6 +87,7 @@ const DOCUMENT_TYPES = [
   { value: 'PACRA', label: 'PACRA Business Registration' },
   { value: 'MOL', label: 'Ministry of Labour Registration' },
   { value: 'OHS', label: 'Occupational Health & Safety Certificate' },
+  { value: 'OTHER', label: 'Other (specify below)' },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -846,8 +847,20 @@ const StatutorySettingsManagement: React.FC = () => {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Document Name / Title" name="document_name">
-                <Input placeholder="e.g. NAPSA Employer Registration" />
+              <Form.Item noStyle shouldUpdate={(prev, cur) => prev.document_type !== cur.document_type}>
+                {({ getFieldValue }) => {
+                  const isOther = getFieldValue('document_type') === 'OTHER';
+                  return (
+                    <Form.Item
+                      label="Document Name / Title"
+                      name="document_name"
+                      rules={isOther ? [{ required: true, message: 'Please specify the document name for Other type' }] : []}
+                      extra={isOther ? <span style={{ color: '#fa8c16' }}>Required — describe what this document is</span> : undefined}
+                    >
+                      <Input placeholder={isOther ? 'e.g. Fire Safety Certificate, Site Permit...' : 'e.g. NAPSA Employer Registration'} />
+                    </Form.Item>
+                  );
+                }}
               </Form.Item>
             </Col>
           </Row>
