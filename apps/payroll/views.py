@@ -2,6 +2,7 @@
 Payroll API ViewSets
 """
 
+from decimal import Decimal
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -598,10 +599,22 @@ class PayslipViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def bulk_set_employer_borne(self, request):
         """
-        Apply or remove employer-borne deductions on all existing payslips for a period.
-        POST: { "year": 2026, "month": 8, "employer_borne_deductions": true }
-        Recalculates each payslip so net_salary reflects the new mode immediately.
+        Switch existing payslips for a period between employer-borne and standard mode.
+
+        Switching TO employer-borne (employer_borne_deductions=true):
+          - The employee's current net_salary becomes the new gross_salary
+            (they keep the same take-home; employer now covers deductions on top)
+          - Salary components (basic/housing/transport/lunch) are recalculated
+            from the new gross using workspace ratios
+          - PayrollEntry is also updated so next month generates correctly
+
+        Switching BACK to standard (employer_borne_deductions=false):
+          - The current gross_salary is back-calculated to find the gross that
+            produces net = current gross (i.e. reverses the operation)
         """
+        from .utils import get_statutory_settings, calculate_gross_from_net
+        from apps.hcm.models import Employee
+
         year = request.data.get('year')
         month = request.data.get('month')
         employer_borne = bool(request.data.get('employer_borne_deductions', False))
@@ -613,15 +626,55 @@ class PayslipViewSet(viewsets.ModelViewSet):
             period__year=year,
             period__month=month,
             is_active=True,
-        )
+        ).select_related('employee', 'employee__workspace')
         if hasattr(request, 'workspace') and request.workspace:
             payslips = payslips.filter(employee__workspace=request.workspace)
 
         updated = 0
         for payslip in payslips:
+            workspace = payslip.employee.workspace
+            statutory = get_statutory_settings(workspace)
+            basic_r = statutory['basic_ratio']
+            housing_r = statutory['housing_ratio']
+            transport_r = statutory['transport_ratio']
+            lunch_r = statutory['lunch_ratio']
+
+            if employer_borne:
+                # The old net becomes the new gross — employee takes home exactly what they earned before
+                new_gross = float(payslip.net_salary)
+            else:
+                # Reverting: the current gross_salary WAS the old net; find the gross that gives that net
+                result = calculate_gross_from_net(float(payslip.gross_salary), workspace=workspace)
+                new_gross = result['gross_salary']
+
+            # Recalculate components from new gross using workspace ratios
+            housing = round(new_gross * housing_r, 2)
+            transport = round(new_gross * transport_r, 2)
+            lunch = round(new_gross * lunch_r, 2)
+            basic = round(new_gross - housing - transport - lunch, 2)
+
+            payslip.basic_salary = basic
+            payslip.housing_allowance = housing
+            payslip.transportation_allowance = transport
+            payslip.lunch_allowance = lunch
             payslip.employer_borne_deductions = employer_borne
+
+            # calculate() recomputes gross_salary from components + runs deductions
             payslip.calculate()
             payslip.save()
+
+            # Keep PayrollEntry in sync so next month's generation uses the correct gross
+            entry = payslip.employee.payroll_entries.order_by('-updated_at').first()
+            if entry:
+                entry.basic = basic
+                entry.housing = housing
+                entry.transportation = transport
+                entry.lunch = lunch
+                entry.gross = Decimal(str(new_gross))
+                entry.net = Decimal(str(payslip.net_salary))
+                entry.employer_borne_deductions = employer_borne
+                entry.save()
+
             updated += 1
 
         return Response({'updated': updated, 'employer_borne_deductions': employer_borne})
