@@ -317,6 +317,21 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             satisfaction = None
             pending_invoices = 0
 
+            # Compliance documents (payroll app) — the source of truth for statutory docs
+            try:
+                from apps.payroll.models import ComplianceDocument
+                comp_docs = list(ComplianceDocument.objects.filter(workspace=ws))
+                doc_active = sum(1 for d in comp_docs if d.computed_status == 'Active')
+                doc_permanent = sum(1 for d in comp_docs if d.computed_status == 'Permanent')
+                doc_expiring = sum(1 for d in comp_docs if d.computed_status == 'Expiring Soon')
+                doc_expired = sum(1 for d in comp_docs if d.computed_status == 'Expired')
+                doc_total = len(comp_docs)
+                doc_valid = doc_active + doc_permanent
+                doc_compliance_pct = round((doc_valid / doc_total) * 100) if doc_total > 0 else 0
+            except Exception:
+                doc_active = doc_permanent = doc_expiring = doc_expired = doc_total = 0
+                doc_compliance_pct = 0
+
             clients_data.append({
                 'workspace': WorkspaceSerializer(ws).data,
                 'stats': {
@@ -334,6 +349,14 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                     'pending_invoices': pending_invoices,
                     'compliance_level': compliance_level,
                     'compliance_percent': compliance_percent,
+                    'doc_compliance': {
+                        'total': doc_total,
+                        'active': doc_active,
+                        'permanent': doc_permanent,
+                        'expiring_soon': doc_expiring,
+                        'expired': doc_expired,
+                        'compliance_pct': doc_compliance_pct,
+                    },
                 },
                 'role': membership.role,
             })

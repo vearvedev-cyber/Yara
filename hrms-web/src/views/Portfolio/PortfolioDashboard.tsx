@@ -46,16 +46,24 @@ export default function PortfolioDashboard() {
     staleTime: 0,
   });
 
-  const { data: complianceSummary } = useQuery({
-    queryKey: ['compliance-summary', workspaceId],
-    queryFn: async () => {
-      if (!workspaceId) return null;
-      const res = await http.get(`/api/v1/payroll/compliance-documents/summary/?workspace=${workspaceId}`);
-      return res.data;
-    },
-    enabled: !!workspaceId,
-    staleTime: 60 * 1000,
-  });
+  // Aggregate compliance doc stats across all portfolio workspaces from portfolio_stats
+  const complianceSummary = workspaces.length > 0 ? (() => {
+    const totals = workspaces.reduce(
+      (acc: any, w: any) => {
+        const d = w.stats?.doc_compliance || {};
+        acc.total += d.total || 0;
+        acc.active += d.active || 0;
+        acc.permanent += d.permanent || 0;
+        acc.expiring_soon += d.expiring_soon || 0;
+        acc.expired += d.expired || 0;
+        return acc;
+      },
+      { total: 0, active: 0, permanent: 0, expiring_soon: 0, expired: 0 }
+    );
+    const valid = totals.active + totals.permanent;
+    totals.compliance_pct = totals.total > 0 ? Math.round((valid / totals.total) * 100) : 0;
+    return totals;
+  })() : null;
 
   const workspaces = portfolioData?.clients || [];
   const totalEmployees = portfolioData?.total_employees_across_all || 0;
@@ -68,8 +76,14 @@ export default function PortfolioDashboard() {
 
   // Calculate aggregate active ATRs and compliance
   const totalOpenRoles = workspaces.reduce((sum: number, w: any) => sum + (w.stats?.active_atrs || 0), 0);
+  // Workspace compliance: % of workspaces that have all their docs active/permanent
   const avgCompliance = workspaces.length > 0
-    ? Math.round((workspaces.filter((w: any) => w.stats?.compliance_level === 'Good').length / workspaces.length) * 100)
+    ? Math.round(
+        (workspaces.filter((w: any) => {
+          const d = w.stats?.doc_compliance;
+          return d && d.total > 0 && d.compliance_pct === 100;
+        }).length / workspaces.length) * 100
+      )
     : 0;
 
   // Filter workspaces based on selected compliance filter
