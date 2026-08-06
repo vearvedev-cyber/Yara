@@ -116,7 +116,9 @@ def generate_payslip_pdf(payslip, workspace_name=None):
     draw_separator()
 
     # ======= DEDUCTIONS =======
-    draw_line('DEDUCTIONS', size=9, bold=True)
+    employer_borne = getattr(payslip, 'employer_borne_deductions', False)
+    deduction_header = 'DEDUCTIONS (COVERED BY EMPLOYER)' if employer_borne else 'DEDUCTIONS'
+    draw_line(deduction_header, size=9, bold=True)
     y -= 2
     draw_row('NAPSA (Employee)', fmt(payslip.napsa_employee))
     draw_row('PAYE Tax', fmt(payslip.paye_tax))

@@ -68,6 +68,11 @@ class PayrollEntry(models.Model):
     gross = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     net = models.DecimalField(max_digits=15, decimal_places=2, default=0)
 
+    employer_borne_deductions = models.BooleanField(
+        default=False,
+        help_text="If True, employer absorbs statutory deductions — employee takes home the full gross"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -188,6 +193,11 @@ class Payslip(models.Model):
     # Final amounts
     total_deductions = models.DecimalField(max_digits=15, decimal_places=2)
     net_salary = models.DecimalField(max_digits=15, decimal_places=2)
+
+    employer_borne_deductions = models.BooleanField(
+        default=False,
+        help_text="If True, employer absorbs statutory deductions — employee takes home the full gross"
+    )
 
     # Versioning
     version = models.PositiveIntegerField(default=1, help_text="Incremented when payslip is recalculated")
@@ -435,8 +445,16 @@ class Payslip(models.Model):
         self.nhima_employee = result['deductions']['nhima_employee']
         self.nhima_employer = result['deductions']['nhima_employer']
         self.total_custom_deductions = result['deductions']['total_custom']
-        self.total_deductions = result['deductions']['total']
-        self.net_salary = result['net_pay']
+
+        if self.employer_borne_deductions:
+            # Employer absorbs statutory deductions — employee receives full gross
+            # Deductions are still recorded for ZRA remittance but don't reduce take-home
+            self.total_deductions = result['deductions']['total_custom'] + float(self.unpaid_leave_deduction)
+            self.net_salary = float(self.gross_salary) - self.total_deductions
+        else:
+            self.total_deductions = result['deductions']['total']
+            self.net_salary = result['net_pay']
+
         self.is_processed = True
 
 

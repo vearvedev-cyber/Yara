@@ -35,6 +35,7 @@ class PayrollEntrySerializer(serializers.ModelSerializer):
             'date_of_hire', 'department', 'resident', 'position',
             'currency', 'basic', 'housing', 'transportation', 'lunch',
             'gross', 'net', 'napsa_employee', 'nhima_employee', 'paye_tax',
+            'employer_borne_deductions',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['employee_name', 'employee_number', 'employee_id', 'created_at', 'updated_at']
@@ -254,6 +255,7 @@ class PayslipCreateSerializer(serializers.ModelSerializer):
             'double_ticket_payment',
             'unpaid_leave_days', 'unpaid_leave_deduction',
             'absenteeism_days', 'absenteeism_deduction',
+            'employer_borne_deductions',
             'notes', 'custom_deductions_data'
         ]
     

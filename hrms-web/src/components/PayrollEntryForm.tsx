@@ -1,4 +1,4 @@
-import { Modal, Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Button, Space, Alert } from 'antd';
+import { Modal, Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Button, Space, Alert, Switch, Tooltip } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import http from '../lib/http';
 import { useQuery } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ interface PayrollEntry {
   lunch: number;
   gross: number;
   net: number;
+  employer_borne_deductions?: boolean;
 }
 
 interface PayrollEntryFormProps {
@@ -33,6 +34,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
   const [netCalcResult, setNetCalcResult] = useState<any>(null);
   const [liveGross, setLiveGross] = useState(0);
   const [liveNet, setLiveNet] = useState(0);
+  const [employerBorne, setEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999999.99;
 
   // Salary split ratios — updated from net-calc API result; defaults match backend
@@ -166,11 +168,13 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
                 Number(entry.transportation || 0) + Number(entry.lunch || 0);
       setLiveGross(g);
       setLiveNet(entry.net || g * 0.7);
+      setEmployerBorne(!!entry.employer_borne_deductions);
     } else {
       form.resetFields();
       form.setFieldsValue({ currency: 'ZMW' });
       setLiveGross(0);
       setLiveNet(0);
+      setEmployerBorne(false);
     }
   }, [entry, visible, form]);
 
@@ -204,6 +208,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
         housing: housingValue,
         transportation: transportationValue,
         lunch: lunchValue,
+        employer_borne_deductions: employerBorne,
       };
 
       // Only add net if provided
@@ -329,6 +334,27 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
 
         <Divider>Salary Components</Divider>
 
+        <Card
+          size="small"
+          style={{ marginBottom: 16, borderColor: employerBorne ? '#fa8c16' : '#d9d9d9', backgroundColor: employerBorne ? '#fff7e6' : undefined }}
+        >
+          <Row align="middle" gutter={12}>
+            <Col>
+              <Tooltip title="When ON, the company absorbs NAPSA, PAYE and NHIMA — employee takes home the full gross salary. Deductions are still recorded for ZRA remittance.">
+                <Switch checked={employerBorne} onChange={setEmployerBorne} />
+              </Tooltip>
+            </Col>
+            <Col flex="auto">
+              <div style={{ fontWeight: 600 }}>Employer-Borne Deductions</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                {employerBorne
+                  ? 'Company covers NAPSA, PAYE & NHIMA — employee receives gross as take-home'
+                  : 'Standard: deductions taken from employee gross salary'}
+              </div>
+            </Col>
+          </Row>
+        </Card>
+
         <Form.Item
           label="Currency"
           name="currency"
@@ -381,7 +407,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
 
         <Divider>Summary</Divider>
 
-        <Card size="small" style={{ backgroundColor: '#f0f5ff' }}>
+        <Card size="small" style={{ backgroundColor: employerBorne ? '#fff7e6' : '#f0f5ff' }}>
           <Row gutter={16}>
             <Col span={12}>
               <div>
@@ -393,17 +419,19 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
             </Col>
             <Col span={12}>
               <div>
-                <strong>Net Pay (Est.):</strong>
-                <div style={{ fontSize: '18px', color: '#52c41a', marginTop: 4 }}>
-                  K{liveNet.toFixed(2)}
+                <strong>{employerBorne ? 'Take-Home (= Gross):' : 'Net Pay (Est.):'}</strong>
+                <div style={{ fontSize: '18px', color: employerBorne ? '#fa8c16' : '#52c41a', marginTop: 4 }}>
+                  K{employerBorne ? liveGross.toFixed(2) : liveNet.toFixed(2)}
                 </div>
               </div>
             </Col>
           </Row>
           <div style={{ marginTop: 12, fontSize: '12px', color: '#666' }}>
-            {netCalcResult
-              ? 'Net pay entered by user. Components calculated from net.'
-              : 'Note: Net pay estimate assumes ~30% deductions (NAPSA, PAYE, NHIMA). Actual net will be calculated in payslip.'}
+            {employerBorne
+              ? 'Employer-borne mode: employee takes home full gross. NAPSA, PAYE & NHIMA still remitted by company.'
+              : netCalcResult
+                ? 'Net pay entered by user. Components calculated from net.'
+                : 'Note: Net pay estimate assumes ~30% deductions (NAPSA, PAYE, NHIMA). Actual net will be calculated in payslip.'}
           </div>
         </Card>
       </Form>

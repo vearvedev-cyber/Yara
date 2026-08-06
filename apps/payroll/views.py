@@ -306,9 +306,10 @@ class PayslipViewSet(viewsets.ModelViewSet):
             is_active=True,
             original_payslip=old_payslip.original_payslip if old_payslip.original_payslip else old_payslip,
             is_processed=old_payslip.is_processed,
+            employer_borne_deductions=old_payslip.employer_borne_deductions,
             notes=old_payslip.notes,
         )
-        
+
         # Copy custom deductions
         for deduction in old_payslip.custom_deductions.all():
             PayslipDeduction.objects.create(
@@ -316,7 +317,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 description=deduction.description,
                 amount=deduction.amount
             )
-        
+
         # Recalculate
         new_payslip.calculate()
         new_payslip.save()
@@ -404,6 +405,8 @@ class PayslipViewSet(viewsets.ModelViewSet):
         year = request.data.get('year')
         month = request.data.get('month')
         employee_ids = request.data.get('employee_ids')
+        # Optional bulk override; None means "inherit from each employee's PayrollEntry"
+        bulk_employer_borne = request.data.get('employer_borne_deductions', None)
         
         if not year or not month:
             return Response(
@@ -548,6 +551,12 @@ class PayslipViewSet(viewsets.ModelViewSet):
             if sick_note_days:
                 notes.append(f"Sick days: {sick_note_days}")
 
+            # Determine employer_borne: bulk override takes precedence; fallback to per-employee setting
+            if bulk_employer_borne is not None:
+                employer_borne = bool(bulk_employer_borne)
+            else:
+                employer_borne = bool(getattr(payroll_entry, 'employer_borne_deductions', False))
+
             payslip = Payslip.objects.create(
                 employee=employee,
                 period=period,
@@ -562,6 +571,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 gross_salary=0,
                 total_deductions=0,
                 net_salary=0,
+                employer_borne_deductions=employer_borne,
                 notes='; '.join(notes)
             )
             

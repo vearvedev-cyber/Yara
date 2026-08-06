@@ -22,6 +22,8 @@ import {
   Tabs,
   Timeline,
   Alert,
+  Switch,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -97,6 +99,7 @@ interface Payslip {
   total_deductions: string;
   net_salary: string;
   is_processed: boolean;
+  employer_borne_deductions: boolean;
   notes: string;
   custom_deductions: Array<{ id: number; description: string; amount: string }>;
 }
@@ -131,6 +134,7 @@ const PayrollManagement: React.FC = () => {
   const [netToGrossLoading, setNetToGrossLoading] = useState(false);
   const [filterName, setFilterName] = useState('');
   const [filterDepartment, setFilterDepartment] = useState<string | undefined>(undefined);
+  const [bulkEmployerBorne, setBulkEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999.99;
 
   const formatMoney = (value: unknown) => {
@@ -215,7 +219,7 @@ const PayrollManagement: React.FC = () => {
 
   // Bulk create payslips mutation
   const bulkCreateMutation = useMutation({
-    mutationFn: (data: { year: number; month: number; employee_ids?: number[] }) =>
+    mutationFn: (data: { year: number; month: number; employee_ids?: number[]; employer_borne_deductions?: boolean }) =>
       http.post('/api/v1/payroll/payslips/bulk_create/', data),
     onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ['payslips'] });
@@ -325,7 +329,11 @@ const PayrollManagement: React.FC = () => {
   });
 
   const handleBulkCreate = () => {
-    bulkCreateMutation.mutate({ year: selectedYear, month: selectedMonth });
+    bulkCreateMutation.mutate({
+      year: selectedYear,
+      month: selectedMonth,
+      ...(bulkEmployerBorne ? { employer_borne_deductions: true } : {}),
+    });
   };
 
   const handleOpenDrawer = (payslip?: Payslip) => {
@@ -638,9 +646,18 @@ const PayrollManagement: React.FC = () => {
     },
     {
       title: 'Employee Name',
-      dataIndex: 'employee_name',
       key: 'employee_name',
-      width: 200,
+      width: 220,
+      render: (_: any, record: Payslip) => (
+        <Space direction="vertical" size={0}>
+          <span>{record.employee_name}</span>
+          {record.employer_borne_deductions && (
+            <Tag color="orange" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+              Employer-Borne
+            </Tag>
+          )}
+        </Space>
+      ),
     },
     {
       title: 'Department',
@@ -1004,10 +1021,23 @@ const PayrollManagement: React.FC = () => {
                           >
                             Add Payslip
                           </Button>
+                          <Tooltip title="When ON, all generated payslips will have employer-borne deductions — employees receive full gross. Each employee's individual setting is overridden for this run.">
+                            <Space style={{ marginRight: 8 }}>
+                              <Switch
+                                size="small"
+                                checked={bulkEmployerBorne}
+                                onChange={setBulkEmployerBorne}
+                              />
+                              <span style={{ fontSize: 12, color: bulkEmployerBorne ? '#fa8c16' : '#888' }}>
+                                Employer-Borne
+                              </span>
+                            </Space>
+                          </Tooltip>
                           <Button
                             type="dashed"
                             onClick={handleBulkCreate}
                             loading={bulkCreateMutation.isPending}
+                            style={bulkEmployerBorne ? { borderColor: '#fa8c16', color: '#fa8c16' } : undefined}
                           >
                             Generate All Payslips
                           </Button>
@@ -1465,7 +1495,25 @@ const PayrollManagement: React.FC = () => {
                       </Col>
 
                       <Col span={12}>
-                        <Card size="small" title="Deductions">
+                        <Card
+                          size="small"
+                          title={
+                            <Space>
+                              Deductions
+                              {viewingPayslip.employer_borne_deductions && (
+                                <Tag color="orange">Employer-Borne</Tag>
+                              )}
+                            </Space>
+                          }
+                        >
+                          {viewingPayslip.employer_borne_deductions && (
+                            <Alert
+                              type="warning"
+                              showIcon
+                              style={{ marginBottom: 8 }}
+                              message="Statutory deductions covered by employer — employee takes home full gross"
+                            />
+                          )}
                           <Space orientation="vertical" style={{ width: '100%' }}>
                             <Row justify="space-between">
                               <Text>NAPSA (5%):</Text>
@@ -1504,15 +1552,26 @@ const PayrollManagement: React.FC = () => {
                     </Row>
 
                     <Divider />
-                    <Card size="small" style={{ backgroundColor: '#f0f9ff', border: '2px solid #1890ff' }}>
+                    <Card
+                      size="small"
+                      style={{
+                        backgroundColor: viewingPayslip.employer_borne_deductions ? '#fff7e6' : '#f0f9ff',
+                        border: `2px solid ${viewingPayslip.employer_borne_deductions ? '#fa8c16' : '#1890ff'}`,
+                      }}
+                    >
                       <Row justify="space-between">
                         <Text strong style={{ fontSize: 20, color: '#000' }}>
                           NET PAY:
                         </Text>
-                        <Text strong style={{ fontSize: 20, color: '#52c41a' }}>
+                        <Text strong style={{ fontSize: 20, color: viewingPayslip.employer_borne_deductions ? '#fa8c16' : '#52c41a' }}>
                           K{parseFloat(viewingPayslip.net_salary).toFixed(2)}
                         </Text>
                       </Row>
+                      {viewingPayslip.employer_borne_deductions && (
+                        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
+                          = Gross (employer covers NAPSA, PAYE & NHIMA)
+                        </div>
+                      )}
                     </Card>
 
                     <Divider />
