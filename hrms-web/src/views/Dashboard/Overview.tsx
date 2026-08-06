@@ -100,7 +100,7 @@ export default function Overview() {
   const { data: medicals = [] } = useQuery({
     queryKey: ['medicals-overview', workspaceId, appliedFilters.search],
     queryFn: async () => {
-      const params: any = { page_size: 5 };
+      const params: any = { page_size: 5, ordering: 'expiry_date' };
       if (appliedFilters.search) params.search = appliedFilters.search;
       const res = await http.get('/api/v1/tracking/medicals/', { params });
       const data = res.data?.results || res.data || [];
