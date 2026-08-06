@@ -46,6 +46,8 @@ export default function PortfolioDashboard() {
     staleTime: 0,
   });
 
+  const workspaces = portfolioData?.clients || [];
+
   // Aggregate compliance doc stats across all portfolio workspaces from portfolio_stats
   const complianceSummary = workspaces.length > 0 ? (() => {
     const totals = workspaces.reduce(
@@ -64,8 +66,6 @@ export default function PortfolioDashboard() {
     totals.compliance_pct = totals.total > 0 ? Math.round((valid / totals.total) * 100) : 0;
     return totals;
   })() : null;
-
-  const workspaces = portfolioData?.clients || [];
   const totalEmployees = portfolioData?.total_employees_across_all || 0;
   const totalProjects = portfolioData?.total_active_projects || 0;
   const totalCases = portfolioData?.total_cases || 0;
