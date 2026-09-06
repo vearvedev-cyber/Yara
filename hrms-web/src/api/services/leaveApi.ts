@@ -1,7 +1,12 @@
 import http from '@/lib/http';
 
-export type LeaveType = 'ANNUAL' | 'SICK' | 'CASUAL' | 'UNPAID';
+export type LeaveType = 'ANNUAL' | 'SICK' | 'CASUAL' | 'UNPAID' | 'MATERNITY' | 'PATERNITY' | 'COMPASSIONATE' | 'STUDY' | 'BEREAVEMENT';
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
+export interface LeaveChoiceOption {
+  label: string;
+  value: LeaveType;
+}
 
 export interface LeaveRequest {
   id: number;
@@ -86,6 +91,10 @@ const buildFormData = (data: Record<string, any>): FormData => {
 };
 
 export const leaveApi = {
+  getLeaveChoices: async (): Promise<LeaveChoiceOption[]> => {
+    const res = await http.get('/api/v1/leave/requests/choices/');
+    return res.data || [];
+  },
   getLeaveRequests: async (): Promise<LeaveRequest[]> => {
     const res = await http.get('/api/v1/leave/requests/');
     return res.data?.results || res.data;

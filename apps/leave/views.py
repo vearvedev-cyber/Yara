@@ -45,6 +45,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         # Applicants create leave; approver set later when status transitions
         serializer.save()
 
+    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated], url_path="choices")
+    def choices(self, request):
+        return Response([
+            {"label": label, "value": value}
+            for value, label in LeaveRequest.LeaveType.choices
+        ])
+
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def summary(self, request):
         employee_id = request.query_params.get("employee")

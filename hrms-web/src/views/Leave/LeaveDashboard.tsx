@@ -10,13 +10,18 @@ import { Dayjs } from 'dayjs';
 import { exportTableToPDF } from '@/lib/pdfExport';
 import { HeroBanner } from '@/components/HeroBanner';
 import { useLeaveRequests, useCreateLeaveRequest, useSickNotes, useCreateSickNote, useApproveLeave, useRejectLeave, useCancelLeave, useApproveSickNote, useRejectSickNote, useDoubleTickets, useCreateDoubleTicket, useApproveDoubleTicket, useRejectDoubleTicket, useDeleteLeaveRequest, useDeleteSickNote, useDeleteDoubleTicket } from '@/lib/hooks/useLeave';
-import type { LeaveRequest, SickNote, DoubleTicketRequest } from '@/api/services/leaveApi';
+import type { LeaveRequest, SickNote, DoubleTicketRequest, LeaveChoiceOption } from '@/api/services/leaveApi';
 
-const leaveTypeOptions = [
+const fallbackLeaveTypeOptions: LeaveChoiceOption[] = [
   { label: 'Annual', value: 'ANNUAL' },
   { label: 'Sick', value: 'SICK' },
   { label: 'Casual', value: 'CASUAL' },
   { label: 'Unpaid', value: 'UNPAID' },
+  { label: 'Maternity', value: 'MATERNITY' },
+  { label: 'Paternity', value: 'PATERNITY' },
+  { label: 'Compassionate', value: 'COMPASSIONATE' },
+  { label: 'Study', value: 'STUDY' },
+  { label: 'Bereavement', value: 'BEREAVEMENT' },
 ];
 
 const leaveStatusColor: Record<string, string> = {
@@ -60,6 +65,23 @@ export default function LeaveDashboard() {
   const { data: leaveRequests = [], isLoading: leaveLoading } = useLeaveRequests();
   const { data: sickNotes = [], isLoading: sickLoading } = useSickNotes();
   const { data: doubleTickets = [], isLoading: doubleTicketsLoading } = useDoubleTickets();
+
+  useEffect(() => {
+    let isMounted = true;
+    http.get('/api/v1/leave/requests/choices/')
+      .then((res) => {
+        if (!isMounted) return;
+        const options = Array.isArray(res.data) ? res.data : [];
+        if (options.length) setLeaveTypeOptions(options);
+      })
+      .catch(() => {
+        if (isMounted) setLeaveTypeOptions(fallbackLeaveTypeOptions);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const createLeave = useCreateLeaveRequest();
   const createSickNote = useCreateSickNote();
   const createDoubleTicket = useCreateDoubleTicket();
@@ -74,6 +96,7 @@ export default function LeaveDashboard() {
   const deleteSickNote = useDeleteSickNote();
   const deleteDoubleTicket = useDeleteDoubleTicket();
 
+  const [leaveTypeOptions, setLeaveTypeOptions] = useState<LeaveChoiceOption[]>(fallbackLeaveTypeOptions);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
   const [sickModalOpen, setSickModalOpen] = useState(false);
   const [doubleTicketModalOpen, setDoubleTicketModalOpen] = useState(false);
