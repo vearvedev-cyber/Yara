@@ -30,6 +30,8 @@ export interface Candidate {
   interview_due_date?: string | null;
   interview_remarks?: string;
   knowledge_score?: number | null;
+  experience_score?: number | null;
+  qualification_score?: number | null;
   status: 'Pipeline' | 'Onboarded' | 'Rejected';
   atr?: number | null;
   atr_reference?: string;

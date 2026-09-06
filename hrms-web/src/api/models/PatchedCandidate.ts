@@ -17,6 +17,8 @@ export type PatchedCandidate = {
     interview_due_date?: string | null;
     interview_remarks?: string;
     knowledge_score?: number | null;
+    experience_score?: number | null;
+    qualification_score?: number | null;
     silicosis_status?: string;
     medicals_status?: string;
     ibf_status?: string;

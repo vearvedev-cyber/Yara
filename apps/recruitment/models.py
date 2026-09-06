@@ -109,6 +109,18 @@ class Candidate(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         help_text="Candidate knowledge score out of 100%"
     )
+    experience_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Candidate experience score out of 100%"
+    )
+    qualification_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Candidate qualification score out of 100%"
+    )
 
     # Pipeline steps (as columns in sheet)
     recommendation_date = models.DateField(null=True, blank=True)

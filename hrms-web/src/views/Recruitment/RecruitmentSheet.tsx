@@ -136,6 +136,12 @@ export default function RecruitmentSheet() {
     if (values.knowledgeScore !== undefined && values.knowledgeScore !== null) {
       payload.append('knowledge_score', String(values.knowledgeScore));
     }
+    if (values.experienceScore !== undefined && values.experienceScore !== null) {
+      payload.append('experience_score', String(values.experienceScore));
+    }
+    if (values.qualificationScore !== undefined && values.qualificationScore !== null) {
+      payload.append('qualification_score', String(values.qualificationScore));
+    }
     if (values.scheduledDate) {
       payload.append('interview_due_date', values.scheduledDate.format('YYYY-MM-DD'));
     }
@@ -184,6 +190,8 @@ export default function RecruitmentSheet() {
                   accommodation: candidate.accommodation || 'N/A',
                   interviewRemarks: candidate.interview_remarks || '',
                   knowledgeScore: candidate.knowledge_score ?? undefined,
+                  experienceScore: candidate.experience_score ?? undefined,
+                  qualificationScore: candidate.qualification_score ?? undefined,
                   scheduledDate: candidate.interview_due_date ? dayjs(candidate.interview_due_date) : null,
                   status: candidate.status || 'Pipeline',
                 });
@@ -440,7 +448,7 @@ export default function RecruitmentSheet() {
           </Row>
 
           <Row gutter={16}>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
               <Form.Item
                 name="knowledgeScore"
                 label="Knowledge Score (%)"
@@ -448,15 +456,30 @@ export default function RecruitmentSheet() {
                 <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="0-100" />
               </Form.Item>
             </Col>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
               <Form.Item
-                name="interviewRemarks"
-                label="Interview Remarks"
+                name="experienceScore"
+                label="Experience Score (%)"
               >
-                <Input.TextArea rows={3} placeholder="Interview notes / candidate assessment" />
+                <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="0-100" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item
+                name="qualificationScore"
+                label="Qualification Score (%)"
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="0-100" />
               </Form.Item>
             </Col>
           </Row>
+
+          <Form.Item
+            name="interviewRemarks"
+            label="Interview Remarks"
+          >
+            <Input.TextArea rows={3} placeholder="Interview notes / candidate assessment" />
+          </Form.Item>
 
           <Form.Item label="Documents">
             <Upload
@@ -491,6 +514,8 @@ export default function RecruitmentSheet() {
             <div><strong>Position:</strong> {selectedCandidate.position}</div>
             <div><strong>Accommodation:</strong> {selectedCandidate.accommodation || '-'}</div>
             <div><strong>Knowledge Score:</strong> {selectedCandidate.knowledge_score !== null && selectedCandidate.knowledge_score !== undefined ? `${selectedCandidate.knowledge_score}%` : '-'}</div>
+            <div><strong>Experience Score:</strong> {selectedCandidate.experience_score !== null && selectedCandidate.experience_score !== undefined ? `${selectedCandidate.experience_score}%` : '-'}</div>
+            <div><strong>Qualification Score:</strong> {selectedCandidate.qualification_score !== null && selectedCandidate.qualification_score !== undefined ? `${selectedCandidate.qualification_score}%` : '-'}</div>
             <div><strong>Interview Remarks:</strong> {selectedCandidate.interview_remarks || '-'}</div>
             <div><strong>Interview Due:</strong> {selectedCandidate.interview_due_date || '-'}</div>
             <div><strong>Status:</strong> {selectedCandidate.status}</div>
