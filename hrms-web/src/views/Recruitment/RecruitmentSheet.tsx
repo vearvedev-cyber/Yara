@@ -505,6 +505,24 @@ export default function RecruitmentSheet() {
         onClose={() => setDrawerOpen(false)}
         open={drawerOpen}
         size="large"
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close candidate details"
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
       >
         {selectedCandidate && (
           <div style={{ display: 'grid', gap: 8 }}>

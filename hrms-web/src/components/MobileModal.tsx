@@ -3,7 +3,7 @@
  * a slide-up bottom-sheet Drawer on mobile portrait.
  */
 import React from 'react';
-import { Modal, Drawer, Grid, Button } from 'antd';
+import { Modal, Drawer, Grid } from 'antd';
 import type { ModalProps } from 'antd';
 
 interface MobileModalProps extends Omit<ModalProps, 'onCancel'> {
@@ -69,9 +69,22 @@ export default function MobileModal({
           </div>
         }
         closeIcon={
-          <Button type="text" size="small" style={{ color: 'var(--text-dim)', fontSize: 18 }}>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
             ✕
-          </Button>
+          </button>
         }
         footer={
           footer ? (
