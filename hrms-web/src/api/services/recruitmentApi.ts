@@ -28,6 +28,8 @@ export interface Candidate {
   agreed_net_pay?: string;
   accommodation?: string;
   interview_due_date?: string | null;
+  interview_remarks?: string;
+  knowledge_score?: number | null;
   status: 'Pipeline' | 'Onboarded' | 'Rejected';
   atr?: number | null;
   atr_reference?: string;

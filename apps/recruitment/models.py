@@ -3,6 +3,7 @@ Recruitment Models
 Includes ATR (Approval To Recruit), Candidate pipeline, and mapping to onboarding steps.
 """
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 from apps.hcm.models import Department
@@ -99,6 +100,15 @@ class Candidate(models.Model):
 
     # Document submission flags
     docs_submitted = models.BooleanField(default=False)
+
+    # Interview assessment
+    interview_remarks = models.TextField(blank=True, help_text="Interview remarks or candidate assessment notes")
+    knowledge_score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Candidate knowledge score out of 100%"
+    )
 
     # Pipeline steps (as columns in sheet)
     recommendation_date = models.DateField(null=True, blank=True)

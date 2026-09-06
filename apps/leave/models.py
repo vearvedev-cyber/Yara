@@ -1,4 +1,6 @@
 """Leave management: leave requests and sick notes with basic calculations."""
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from apps.hcm.models import Employee
@@ -10,6 +12,11 @@ class LeaveRequest(models.Model):
         SICK = "SICK", "Sick"
         CASUAL = "CASUAL", "Casual"
         UNPAID = "UNPAID", "Unpaid"
+        MATERNITY = "MATERNITY", "Maternity"
+        PATERNITY = "PATERNITY", "Paternity"
+        COMPASSIONATE = "COMPASSIONATE", "Compassionate"
+        STUDY = "STUDY", "Study"
+        BEREAVEMENT = "BEREAVEMENT", "Bereavement"
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
@@ -135,9 +142,9 @@ class DoubleTicketRequest(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="double_tickets")
     work_date = models.DateField(help_text="Sunday or public holiday worked")
     hours_worked = models.DecimalField(
-        max_digits=4, 
-        decimal_places=2, 
-        default=8.00,
+        max_digits=4,
+        decimal_places=2,
+        default=Decimal("8.00"),
         help_text="Hours worked (default 8 for full shift)"
     )
     reason = models.TextField(help_text="Reason for Sunday/holiday work")
@@ -179,34 +186,37 @@ class DoubleTicketRequest(models.Model):
         Double Ticket = (Hourly Rate × 2) × Hours Worked
         """
         try:
-            # Get employee's basic salary from most recent payslip or payroll entry
+            # Get employee's basic salary from most recent payslip or payroll entry.
+            # Use getattr() to avoid false-positive static analysis warnings for dynamic
+            # reverse relations on the Employee model.
             basic_salary = None
             source = None
-            
-            # Try any payslip first (processed or draft) - most recent with basic_salary > 0
-            if hasattr(self.employee, 'payslips'):
-                payslip = self.employee.payslips.filter(basic_salary__gt=0).order_by('-created_at').first()
+
+            payslips = getattr(self.employee, 'payslips', None)
+            if payslips is not None:
+                payslip = payslips.filter(basic_salary__gt=0).order_by('-created_at').first()
                 if payslip:
                     basic_salary = payslip.basic_salary
                     source = f"payslip {payslip.id}"
-            
-            # Try payroll entry (has basic field)
-            if not basic_salary and hasattr(self.employee, 'payroll_entries'):
-                entry = self.employee.payroll_entries.filter(basic__gt=0).order_by('-updated_at', '-created_at').first()
-                if entry:
-                    basic_salary = entry.basic  # Field name is 'basic', not 'basic_salary'
-                    source = f"payroll entry {entry.id}"
-            
-            # Fallback to engagement
-            if not basic_salary and hasattr(self.employee, 'engagement'):
-                engagement = self.employee.engagement
-                if engagement and engagement.contract_type:
-                    # Check if there's a related contract with salary
-                    contract = self.employee.contracts.filter(status='ACTIVE').first()
-                    if contract and hasattr(contract, 'basic_salary'):
-                        basic_salary = contract.basic_salary
-                        source = f"contract {contract.id}"
-            
+
+            if not basic_salary:
+                payroll_entries = getattr(self.employee, 'payroll_entries', None)
+                if payroll_entries is not None:
+                    entry = payroll_entries.filter(basic__gt=0).order_by('-updated_at', '-created_at').first()
+                    if entry:
+                        basic_salary = entry.basic
+                        source = f"payroll entry {entry.id}"
+
+            if not basic_salary:
+                engagement = getattr(self.employee, 'engagement', None)
+                if engagement and getattr(engagement, 'contract_type', None):
+                    contracts = getattr(self.employee, 'contracts', None)
+                    if contracts is not None:
+                        contract = contracts.filter(status='ACTIVE').first()
+                        if contract and hasattr(contract, 'basic_salary'):
+                            basic_salary = contract.basic_salary
+                            source = f"contract {contract.id}"
+
             if basic_salary and basic_salary > 0:
                 basic_float = float(basic_salary)
                 hours_float = float(self.hours_worked)
@@ -217,8 +227,8 @@ class DoubleTicketRequest(models.Model):
                 return result
             else:
                 print(f"[Double Ticket] Employee {self.employee.employee_id}: No basic salary found - cannot calculate payment")
-            
-            return 0  # Return 0 instead of None for consistency
+
+            return 0
         except Exception as e:
             print(f"Error calculating double ticket payment for {self.employee.employee_id}: {e}")
             import traceback

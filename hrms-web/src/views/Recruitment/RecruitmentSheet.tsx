@@ -1,4 +1,4 @@
-import { Button, Modal, Form, Input, DatePicker, message, Row, Col, Select, Upload, Drawer, Card, Space } from 'antd';
+import { Button, Modal, Form, Input, DatePicker, message, Row, Col, Select, Upload, Drawer, Card, Space, InputNumber } from 'antd';
 import MobileTable from '../../components/MobileTable';
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
@@ -132,6 +132,10 @@ export default function RecruitmentSheet() {
     payload.append('phone_number', values.phoneNumber || '');
     payload.append('position', values.position);
     payload.append('accommodation', values.accommodation || 'N/A');
+    payload.append('interview_remarks', values.interviewRemarks || '');
+    if (values.knowledgeScore !== undefined && values.knowledgeScore !== null) {
+      payload.append('knowledge_score', String(values.knowledgeScore));
+    }
     if (values.scheduledDate) {
       payload.append('interview_due_date', values.scheduledDate.format('YYYY-MM-DD'));
     }
@@ -178,6 +182,8 @@ export default function RecruitmentSheet() {
                   phoneNumber: candidate.phone_number || '',
                   position: candidate.position,
                   accommodation: candidate.accommodation || 'N/A',
+                  interviewRemarks: candidate.interview_remarks || '',
+                  knowledgeScore: candidate.knowledge_score ?? undefined,
                   scheduledDate: candidate.interview_due_date ? dayjs(candidate.interview_due_date) : null,
                   status: candidate.status || 'Pipeline',
                 });
@@ -433,6 +439,25 @@ export default function RecruitmentSheet() {
             </Col>
           </Row>
 
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="knowledgeScore"
+                label="Knowledge Score (%)"
+              >
+                <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="0-100" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="interviewRemarks"
+                label="Interview Remarks"
+              >
+                <Input.TextArea rows={3} placeholder="Interview notes / candidate assessment" />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <Form.Item label="Documents">
             <Upload
               multiple
@@ -465,6 +490,8 @@ export default function RecruitmentSheet() {
             <div><strong>Phone:</strong> {selectedCandidate.phone_number || '-'}</div>
             <div><strong>Position:</strong> {selectedCandidate.position}</div>
             <div><strong>Accommodation:</strong> {selectedCandidate.accommodation || '-'}</div>
+            <div><strong>Knowledge Score:</strong> {selectedCandidate.knowledge_score !== null && selectedCandidate.knowledge_score !== undefined ? `${selectedCandidate.knowledge_score}%` : '-'}</div>
+            <div><strong>Interview Remarks:</strong> {selectedCandidate.interview_remarks || '-'}</div>
             <div><strong>Interview Due:</strong> {selectedCandidate.interview_due_date || '-'}</div>
             <div><strong>Status:</strong> {selectedCandidate.status}</div>
             <div>
