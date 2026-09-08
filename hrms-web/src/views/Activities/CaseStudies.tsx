@@ -653,6 +653,24 @@ export default function CaseStudies() {
         onClose={() => setDrawerVisible(false)}
         open={drawerVisible}
         width={600}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close case details"
+            onClick={() => setDrawerVisible(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
       >
         {selectedCase && (
           <div>

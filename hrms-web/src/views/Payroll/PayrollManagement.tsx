@@ -1180,6 +1180,28 @@ const PayrollManagement: React.FC = () => {
           form.resetFields();
         }}
         size="large"
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close payslip form"
+            onClick={() => {
+              setDrawerVisible(false);
+              setEditingPayslip(null);
+              form.resetFields();
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
         extra={
           <Button
             type="primary"

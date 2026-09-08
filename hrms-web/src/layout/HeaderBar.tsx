@@ -709,6 +709,24 @@ export default function HeaderBar({ onMobileMenu }: { onMobileMenu?: () => void 
         placement="right"
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close settings"
+            onClick={() => setSettingsOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
       >
         <Space direction="vertical" style={{ width: '100%' }}>
           <div>

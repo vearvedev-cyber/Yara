@@ -535,6 +535,24 @@ export default function Investigations() {
         onClose={() => setViewDrawerOpen(false)}
         open={viewDrawerOpen}
         width={600}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close investigation details"
+            onClick={() => setViewDrawerOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
       >
         {viewingRecord && (
           <div style={{ display: 'grid', gap: '16px' }}>

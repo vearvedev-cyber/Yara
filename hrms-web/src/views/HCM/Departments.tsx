@@ -249,6 +249,24 @@ export default function Departments() {
         open={viewOpen}
         onClose={() => setViewOpen(false)}
         width={480}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close department details"
+            onClick={() => setViewOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
       >
         {selected ? (
           <div>

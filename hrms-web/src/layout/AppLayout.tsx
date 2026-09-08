@@ -237,6 +237,24 @@ export default function AppLayout() {
           onClose={() => setDrawerOpen(false)}
           placement="left"
           width={260}
+          closeIcon={
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => setDrawerOpen(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-dim)',
+                fontSize: 18,
+                cursor: 'pointer',
+                lineHeight: 1,
+                padding: 0,
+              }}
+            >
+              ✕
+            </button>
+          }
           styles={{
             body: { padding: 0, background: 'var(--sidebar-bg)', display: 'flex', flexDirection: 'column' },
             header: { display: 'none' },

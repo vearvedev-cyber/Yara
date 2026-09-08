@@ -816,6 +816,24 @@ export default function SiteManage() {
         open={empDrawerVisible}
         onClose={() => { setEmpDrawerVisible(false); setSelectedEmployee(null); empRecordForm.resetFields(); }}
         width={480}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close employee site records"
+            onClick={() => { setEmpDrawerVisible(false); setSelectedEmployee(null); empRecordForm.resetFields(); }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
         extra={
           selectedEmployee && (
             <div style={{ textAlign: 'right', fontSize: 12, color: '#888' }}>

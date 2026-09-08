@@ -1081,6 +1081,24 @@ export default function Demography() {
         onClose={() => setDrawerOpen(false)}
         destroyOnClose
         title={employeeDetail?.full_name || 'Employee Details'}
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close employee details"
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
         extra={
           employeeDetail ? (
             <Button

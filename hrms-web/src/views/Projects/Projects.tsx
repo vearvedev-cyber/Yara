@@ -280,6 +280,24 @@ export default function Projects() {
         onClose={() => setDrawerOpen(false)}
         size="large"
         destroyOnClose
+        closeIcon={
+          <button
+            type="button"
+            aria-label="Close program editor"
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 18,
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: 0,
+            }}
+          >
+            ✕
+          </button>
+        }
         extra={<Button type="primary" onClick={() => form.submit()}>{editing ? 'Save' : 'Create'}</Button>}
       >
         <Form layout="vertical" form={form} onFinish={handleUpsert} initialValues={{ status: 'active', priority: 'normal', progress: 0, startDate: dayjs() }}>
