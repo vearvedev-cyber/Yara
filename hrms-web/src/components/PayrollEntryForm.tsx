@@ -42,6 +42,47 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
   const [employerBorne, setEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999999.99;
 
+  const handleEmployerBorneToggle = (checked: boolean) => {
+    setEmployerBorne(checked);
+
+    const currentBasic = asNumber(form.getFieldValue('basic'), 0);
+    const currentHousing = asNumber(form.getFieldValue('housing'), 0);
+    const currentTransport = asNumber(form.getFieldValue('transportation'), 0);
+    const currentLunch = asNumber(form.getFieldValue('lunch'), 0);
+    const currentGross = currentBasic + currentHousing + currentTransport + currentLunch;
+    const currentNet = asNumber(form.getFieldValue('net'), 0);
+
+    if (checked) {
+      const r = ratiosRef.current;
+      const gross = currentGross > 0 ? currentGross : currentNet > 0 ? currentNet : 0;
+      if (gross <= 0) {
+        setLiveGross(0);
+        setLiveNet(0);
+        return;
+      }
+
+      const housing = Number((gross * r.housing).toFixed(2));
+      const transport = Number((gross * r.transport).toFixed(2));
+      const lunch = Number((gross * r.lunch).toFixed(2));
+      const basic = Number((gross - housing - transport - lunch).toFixed(2));
+
+      autoCalcRef.current = true;
+      form.setFieldsValue({ basic, housing, transportation: transport, lunch, net: gross });
+      setTimeout(() => { autoCalcRef.current = false; }, 0);
+      setLiveGross(gross);
+      setLiveNet(gross);
+      setNetCalcResult(null);
+      return;
+    }
+
+    const fallbackNet = currentNet > 0 ? currentNet : currentGross > 0 ? currentGross : 0;
+    autoCalcRef.current = true;
+    form.setFieldsValue({ net: fallbackNet });
+    setTimeout(() => { autoCalcRef.current = false; }, 0);
+    setLiveGross(currentGross > 0 ? currentGross : fallbackNet);
+    setLiveNet(fallbackNet);
+  };
+
   // Salary split ratios — updated from net-calc API result; defaults match backend
   const ratiosRef = useRef({ basic: 0.45, housing: 0.25, transport: 0.15, lunch: 0.15 });
   // Flag: prevents cascaded onValuesChange when we programmatically setFieldsValue
@@ -366,7 +407,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
           <Row align="middle" gutter={12}>
             <Col>
               <Tooltip title="When ON, the company absorbs NAPSA, PAYE and NHIMA — employee takes home the full gross salary. Deductions are still recorded for ZRA remittance.">
-                <Switch checked={employerBorne} onChange={setEmployerBorne} />
+                <Switch checked={employerBorne} onChange={handleEmployerBorneToggle} />
               </Tooltip>
             </Col>
             <Col flex="auto">
