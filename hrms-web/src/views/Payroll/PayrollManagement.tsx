@@ -348,11 +348,16 @@ const PayrollManagement: React.FC = () => {
   });
 
   const handleBulkCreate = () => {
-    bulkCreateMutation.mutate({
+    const payload: { year: number; month: number; employer_borne_deductions?: boolean } = {
       year: selectedYear,
       month: selectedMonth,
-      employer_borne_deductions: bulkEmployerBorne,
-    });
+    };
+
+    if (bulkEmployerBorne) {
+      payload.employer_borne_deductions = true;
+    }
+
+    bulkCreateMutation.mutate(payload);
   };
 
   const handleOpenDrawer = (payslip?: Payslip) => {
@@ -1040,7 +1045,7 @@ const PayrollManagement: React.FC = () => {
                           >
                             Add Payslip
                           </Button>
-                          <Tooltip title="When ON, payslips will use employer-borne deductions — employees receive full gross salary. For new payslips: applies on generate. For existing: click 'Apply to existing'.">
+                          <Tooltip title="When ON, this bulk option explicitly applies employer-borne mode to all generated/selected payslips. When OFF, each employee keeps their own stored setting instead of being forced to standard mode.">
                             <Space style={{ marginRight: 8 }}>
                               <Switch
                                 size="small"

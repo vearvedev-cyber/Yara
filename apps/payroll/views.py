@@ -452,16 +452,20 @@ class PayslipViewSet(viewsets.ModelViewSet):
             period_end = datetime(year=int(year), month=int(month)+1, day=1).date()
         
         for employee in employees:
+            # Try to get salary structure from PayrollEntry (Salary Management Dashboard)
+            payroll_entry = employee.payroll_entries.order_by('-updated_at', '-created_at').first()
             existing_payslip = Payslip.objects.filter(employee=employee, period=period).first()
 
-            # If a payslip already exists, only skip it if there is no explicit bulk override.
-            if existing_payslip and bulk_employer_borne is None:
+            # Respect the employee's saved setup unless the user explicitly overrides the whole batch.
+            if bulk_employer_borne is None:
+                employer_borne = bool(getattr(payroll_entry, 'employer_borne_deductions', False))
+            else:
+                employer_borne = bool(bulk_employer_borne)
+
+            if existing_payslip and bulk_employer_borne is None and existing_payslip.employer_borne_deductions == employer_borne:
                 errors.append(f"Payslip already exists for {employee.full_name}")
                 skipped_existing += 1
                 continue
-
-            # Try to get salary structure from PayrollEntry (Salary Management Dashboard)
-            payroll_entry = employee.payroll_entries.order_by('-updated_at', '-created_at').first()
             
             if not payroll_entry:
                 errors.append(f"No salary data found for {employee.full_name}. Please add employee to payroll first.")
