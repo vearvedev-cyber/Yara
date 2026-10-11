@@ -27,6 +27,11 @@ interface PayrollEntryFormProps {
   entry?: PayrollEntry;
 }
 
+const asNumber = (value: unknown, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
 export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }: PayrollEntryFormProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -68,33 +73,33 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
 
   // Helper: apply net-calc result to form fields, store ratios, update live summary
   const applyNetCalcResult = (data: any, enteredNet?: number) => {
-    const g = Number(data.gross_salary);
+    const g = asNumber(data?.gross_salary, 0);
     if (g > 0) {
       ratiosRef.current = {
-        basic:     Number(data.basic_salary)              / g,
-        housing:   Number(data.housing_allowance)         / g,
-        transport: Number(data.transportation_allowance)  / g,
-        lunch:     Number(data.lunch_allowance)           / g,
+        basic: asNumber(data?.basic_salary, 0) / g,
+        housing: asNumber(data?.housing_allowance, 0) / g,
+        transport: asNumber(data?.transportation_allowance, 0) / g,
+        lunch: asNumber(data?.lunch_allowance, 0) / g,
       };
     }
     autoCalcRef.current = true;
     form.setFieldsValue({
-      basic:          data.basic_salary,
-      housing:        data.housing_allowance,
-      transportation: data.transportation_allowance,
-      lunch:          data.lunch_allowance,
+      basic: asNumber(data?.basic_salary, 0),
+      housing: asNumber(data?.housing_allowance, 0),
+      transportation: asNumber(data?.transportation_allowance, 0),
+      lunch: asNumber(data?.lunch_allowance, 0),
     });
     setTimeout(() => { autoCalcRef.current = false; }, 0);
     setLiveGross(g);
-    setLiveNet(enteredNet ?? g * 0.7);
+    setLiveNet(asNumber(enteredNet ?? g * 0.7, 0));
   };
 
   // Recomputes both liveGross and liveNet from current form values
   const recompute = (overrideBasic?: number) => {
-    const basic = overrideBasic ?? Number(form.getFieldValue('basic') || 0);
-    const housing = Number(form.getFieldValue('housing') || 0);
-    const transportation = Number(form.getFieldValue('transportation') || 0);
-    const lunch = Number(form.getFieldValue('lunch') || 0);
+    const basic = asNumber(overrideBasic ?? form.getFieldValue('basic'), 0);
+    const housing = asNumber(form.getFieldValue('housing'), 0);
+    const transportation = asNumber(form.getFieldValue('transportation'), 0);
+    const lunch = asNumber(form.getFieldValue('lunch'), 0);
     const g = basic + housing + transportation + lunch;
     setLiveGross(g);
     setLiveNet(g * 0.7);
@@ -185,7 +190,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
         net: entry.net,
       });
       const g = Number(entry.basic || 0) + Number(entry.housing || 0) +
-                Number(entry.transportation || 0) + Number(entry.lunch || 0);
+        Number(entry.transportation || 0) + Number(entry.lunch || 0);
       setLiveGross(g);
       setLiveNet(entry.net || g * 0.7);
       setEmployerBorne(!!entry.employer_borne_deductions);
@@ -202,11 +207,11 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
     try {
       setLoading(true);
 
-      const netValue = Number(values.net || 0);
-      const basicValue = Number(values.basic || 0);
-      const housingValue = Number(values.housing || 0);
-      const transportationValue = Number(values.transportation || 0);
-      const lunchValue = Number(values.lunch || 0);
+      const netValue = asNumber(values.net, 0);
+      const basicValue = asNumber(values.basic, 0);
+      const housingValue = asNumber(values.housing, 0);
+      const transportationValue = asNumber(values.transportation, 0);
+      const lunchValue = asNumber(values.lunch, 0);
 
       const hasComponents = basicValue > 0 || housingValue > 0 || transportationValue > 0 || lunchValue > 0;
       const hasNet = netValue > 0;
@@ -409,7 +414,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
                 type="success"
                 showIcon
                 title="Auto-calculated"
-                description={`Gross Salary: K${Number(netCalcResult.gross_salary).toFixed(2)}`}
+                description={`Gross Salary: K${asNumber(netCalcResult?.gross_salary, 0).toFixed(2)}`}
               />
             )}
             {employerBorne && (
@@ -444,7 +449,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
               <div>
                 <strong>Gross Pay:</strong>
                 <div style={{ fontSize: '18px', color: '#1890ff', marginTop: 4 }}>
-                  K{liveGross.toFixed(2)}
+                  K{asNumber(liveGross, 0).toFixed(2)}
                 </div>
               </div>
             </Col>
@@ -452,7 +457,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
               <div>
                 <strong>{employerBorne ? 'Take-Home (= Gross):' : 'Net Pay (Est.):'}</strong>
                 <div style={{ fontSize: '18px', color: employerBorne ? '#fa8c16' : '#52c41a', marginTop: 4 }}>
-                  K{employerBorne ? liveGross.toFixed(2) : liveNet.toFixed(2)}
+                  K{employerBorne ? asNumber(liveGross, 0).toFixed(2) : asNumber(liveNet, 0).toFixed(2)}
                 </div>
               </div>
             </Col>

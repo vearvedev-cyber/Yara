@@ -137,11 +137,15 @@ const PayrollManagement: React.FC = () => {
   const [bulkEmployerBorne, setBulkEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999.99;
 
-  const formatMoney = (value: unknown) => {
+  const safeNumber = (value: unknown, fallback = 0) => {
     const num = Number(value);
-    if (Number.isNaN(num) || !Number.isFinite(num)) {
-      return 'K0.00';
-    }
+    return Number.isFinite(num) ? num : fallback;
+  };
+
+  const safeMoney = (value: unknown) => safeNumber(value).toFixed(2);
+
+  const formatMoney = (value: unknown) => {
+    const num = safeNumber(value);
     return `K${num.toFixed(2)}`;
   };
 
@@ -685,41 +689,41 @@ const PayrollManagement: React.FC = () => {
       dataIndex: 'gross_salary',
       key: 'gross_salary',
       width: 130,
-      render: (val: string) => `K${parseFloat(val).toFixed(2)}`,
+      render: (val: string) => `K${safeMoney(val)}`,
     },
     {
       title: 'NAPSA',
       dataIndex: 'napsa_employee',
       key: 'napsa_employee',
       width: 110,
-      render: (val: string) => `K${parseFloat(val).toFixed(2)}`,
+      render: (val: string) => `K${safeMoney(val)}`,
     },
     {
       title: 'PAYE',
       dataIndex: 'paye_tax',
       key: 'paye_tax',
       width: 110,
-      render: (val: string) => `K${parseFloat(val).toFixed(2)}`,
+      render: (val: string) => `K${safeMoney(val)}`,
     },
     {
       title: 'NHIMA',
       dataIndex: 'nhima_employee',
       key: 'nhima_employee',
       width: 110,
-      render: (val: string) => `K${parseFloat(val).toFixed(2)}`,
+      render: (val: string) => `K${safeMoney(val)}`,
     },
     {
       title: 'Other Deductions',
       key: 'other_deductions',
       width: 140,
       render: (_: any, record: Payslip) => {
-        const unpaidLeave = parseFloat(record.unpaid_leave_deduction || '0');
-        const absenteeism = parseFloat(record.absenteeism_deduction || '0');
-        const custom = parseFloat(record.total_custom_deductions || '0');
+        const unpaidLeave = safeNumber(record.unpaid_leave_deduction);
+        const absenteeism = safeNumber(record.absenteeism_deduction);
+        const custom = safeNumber(record.total_custom_deductions);
         const total = unpaidLeave + absenteeism + custom;
 
         return total > 0 ? (
-          <Text style={{ color: '#ff4d4f' }}>K{total.toFixed(2)}</Text>
+          <Text style={{ color: '#ff4d4f' }}>K{safeMoney(total)}</Text>
         ) : (
           <Text type="secondary">-</Text>
         );
@@ -732,7 +736,7 @@ const PayrollManagement: React.FC = () => {
       width: 140,
       render: (val: string) => (
         <Text strong style={{ color: '#52c41a', fontSize: '15px' }}>
-          K{parseFloat(val).toFixed(2)}
+          K{safeMoney(val)}
         </Text>
       ),
     },
@@ -1517,40 +1521,40 @@ const PayrollManagement: React.FC = () => {
                           <Space orientation="vertical" style={{ width: '100%' }}>
                             <Row justify="space-between">
                               <Text>Basic Salary:</Text>
-                              <Text>K{parseFloat(viewingPayslip.basic_salary).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.basic_salary)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Housing:</Text>
-                              <Text>K{parseFloat(viewingPayslip.housing_allowance).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.housing_allowance)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Transportation:</Text>
-                              <Text>K{parseFloat(viewingPayslip.transportation_allowance).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.transportation_allowance)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Lunch:</Text>
-                              <Text>K{parseFloat(viewingPayslip.lunch_allowance).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.lunch_allowance)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Other Allowances:</Text>
-                              <Text>K{parseFloat(viewingPayslip.other_allowances || '0').toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.other_allowances || '0')}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Overtime Pay:</Text>
-                              <Text style={{ color: '#52c41a' }}>K{parseFloat(viewingPayslip.overtime_payment || '0').toFixed(2)}</Text>
+                              <Text style={{ color: '#52c41a' }}>K{safeMoney(viewingPayslip.overtime_payment || '0')}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Bonus:</Text>
-                              <Text style={{ color: '#52c41a' }}>K{parseFloat(viewingPayslip.bonus || '0').toFixed(2)}</Text>
+                              <Text style={{ color: '#52c41a' }}>K{safeMoney(viewingPayslip.bonus || '0')}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>Double Ticket (Sunday/Holiday):</Text>
-                              <Text style={{ color: '#52c41a' }}>K{parseFloat(viewingPayslip.double_ticket_payment || '0').toFixed(2)}</Text>
+                              <Text style={{ color: '#52c41a' }}>K{safeMoney(viewingPayslip.double_ticket_payment || '0')}</Text>
                             </Row>
                             <Divider style={{ margin: '8px 0' }} />
                             <Row justify="space-between">
                               <Text strong>Gross Salary:</Text>
-                              <Text strong>K{parseFloat(viewingPayslip.gross_salary).toFixed(2)}</Text>
+                              <Text strong>K{safeMoney(viewingPayslip.gross_salary)}</Text>
                             </Row>
                           </Space>
                         </Card>
@@ -1579,34 +1583,34 @@ const PayrollManagement: React.FC = () => {
                           <Space orientation="vertical" style={{ width: '100%' }}>
                             <Row justify="space-between">
                               <Text>NAPSA (5%):</Text>
-                              <Text>K{parseFloat(viewingPayslip.napsa_employee).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.napsa_employee)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>PAYE Tax:</Text>
-                              <Text>K{parseFloat(viewingPayslip.paye_tax).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.paye_tax)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text>NHIMA (1%):</Text>
-                              <Text>K{parseFloat(viewingPayslip.nhima_employee).toFixed(2)}</Text>
+                              <Text>K{safeMoney(viewingPayslip.nhima_employee)}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text style={{ color: '#ff4d4f' }}>Unpaid Leave ({viewingPayslip.unpaid_leave_days || '0'} days):</Text>
-                              <Text style={{ color: '#ff4d4f' }}>K{parseFloat(viewingPayslip.unpaid_leave_deduction || '0').toFixed(2)}</Text>
+                              <Text style={{ color: '#ff4d4f' }}>K{safeMoney(viewingPayslip.unpaid_leave_deduction || '0')}</Text>
                             </Row>
                             <Row justify="space-between">
                               <Text style={{ color: '#ff4d4f' }}>Absenteeism ({viewingPayslip.absenteeism_days || '0'} days):</Text>
-                              <Text style={{ color: '#ff4d4f' }}>K{parseFloat(viewingPayslip.absenteeism_deduction || '0').toFixed(2)}</Text>
+                              <Text style={{ color: '#ff4d4f' }}>K{safeMoney(viewingPayslip.absenteeism_deduction || '0')}</Text>
                             </Row>
                             {viewingPayslip.custom_deductions.map((cd) => (
                               <Row key={cd.id} justify="space-between">
                                 <Text>{cd.description}:</Text>
-                                <Text>K{parseFloat(cd.amount).toFixed(2)}</Text>
+                                <Text>K{safeMoney(cd.amount)}</Text>
                               </Row>
                             ))}
                             <Divider style={{ margin: '8px 0' }} />
                             <Row justify="space-between">
                               <Text strong>Total Deductions:</Text>
-                              <Text strong style={{ color: '#ff4d4f' }}>K{parseFloat(viewingPayslip.total_deductions).toFixed(2)}</Text>
+                              <Text strong style={{ color: '#ff4d4f' }}>K{safeMoney(viewingPayslip.total_deductions)}</Text>
                             </Row>
                           </Space>
                         </Card>
@@ -1626,7 +1630,7 @@ const PayrollManagement: React.FC = () => {
                           NET PAY:
                         </Text>
                         <Text strong style={{ fontSize: 20, color: viewingPayslip.employer_borne_deductions ? '#fa8c16' : '#52c41a' }}>
-                          K{parseFloat(viewingPayslip.net_salary).toFixed(2)}
+                          K{safeMoney(viewingPayslip.net_salary)}
                         </Text>
                       </Row>
                       {viewingPayslip.employer_borne_deductions && (
@@ -1647,8 +1651,8 @@ const PayrollManagement: React.FC = () => {
                           columns={[
                             { title: 'Band Range', dataIndex: 'band', key: 'band' },
                             { title: 'Rate', dataIndex: 'rate', key: 'rate' },
-                            { title: 'Amount in Band', dataIndex: 'amount', key: 'amount', render: (val: number) => `K${val.toFixed(2)}` },
-                            { title: 'Tax', dataIndex: 'tax', key: 'tax', render: (val: number) => `K${val.toFixed(2)}` },
+                            { title: 'Amount in Band', dataIndex: 'amount', key: 'amount', render: (val: number) => `K${safeMoney(val)}` },
+                            { title: 'Tax', dataIndex: 'tax', key: 'tax', render: (val: number) => `K${safeMoney(val)}` },
                           ]}
                         />
                       ) : (

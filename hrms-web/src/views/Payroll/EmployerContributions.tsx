@@ -42,6 +42,13 @@ interface EmployerSummary {
   breakdown: EmployeeBreakdown[];
 }
 
+const safeNumber = (value: unknown, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const safeMoney = (value: unknown) => safeNumber(value).toFixed(2);
+
 const EmployerContributions: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -106,21 +113,21 @@ const EmployerContributions: React.FC = () => {
       dataIndex: 'gross_salary',
       key: 'gross_salary',
       width: 130,
-      render: (val: number) => `K${val.toFixed(2)}`,
+      render: (val: number) => `K${safeMoney(val)}`,
     },
     {
       title: 'NAPSA (Employer 5%)',
       dataIndex: 'napsa_employer',
       key: 'napsa_employer',
       width: 150,
-      render: (val: number) => `K${val.toFixed(2)}`,
+      render: (val: number) => `K${safeMoney(val)}`,
     },
     {
       title: 'NHIMA (Employer 1%)',
       dataIndex: 'nhima_employer',
       key: 'nhima_employer',
       width: 155,
-      render: (val: number) => `K${val.toFixed(2)}`,
+      render: (val: number) => `K${safeMoney(val)}`,
     },
     {
       title: 'PAYE (Employee)',
@@ -128,7 +135,7 @@ const EmployerContributions: React.FC = () => {
       key: 'paye_tax',
       width: 140,
       render: (val: number) => (
-        <Text style={{ color: '#faad14' }}>K{val.toFixed(2)}</Text>
+        <Text style={{ color: '#faad14' }}>K{safeMoney(val)}</Text>
       ),
     },
     {
@@ -138,7 +145,7 @@ const EmployerContributions: React.FC = () => {
       width: 130,
       render: (val: number) => (
         <Text strong style={{ color: '#fa8c16' }}>
-          K{val.toFixed(2)}
+          K{safeMoney(val)}
         </Text>
       ),
     },

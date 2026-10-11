@@ -32,6 +32,13 @@ const currentDate = new Date();
 const currentYear = currentDate.getFullYear();
 const currentMonth = currentDate.getMonth() + 1;
 
+const safeNumber = (value: unknown, fallback = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
+const safeMoney = (value: unknown) => safeNumber(value).toFixed(2);
+
 const months = [
   { value: 1, label: 'January' },
   { value: 2, label: 'February' },
@@ -84,24 +91,24 @@ export default function RemittanceReport() {
     const rows = report.employee_breakdown.map(emp => [
       emp.employee_id,
       emp.employee_name,
-      emp.gross_salary.toFixed(2),
-      emp.paye.toFixed(2),
-      emp.napsa_employee.toFixed(2),
-      emp.napsa_employer.toFixed(2),
-      emp.nhima_employee.toFixed(2),
-      emp.nhima_employer.toFixed(2),
+      safeMoney(emp.gross_salary),
+      safeMoney(emp.paye),
+      safeMoney(emp.napsa_employee),
+      safeMoney(emp.napsa_employer),
+      safeMoney(emp.nhima_employee),
+      safeMoney(emp.nhima_employer),
     ]);
 
     // Add summary rows
     rows.push([
       'TOTALS',
       '',
-      report.summary.total_gross_payroll.toFixed(2),
-      report.zra.paye_total.toFixed(2),
-      report.napsa.employee_total.toFixed(2),
-      report.napsa.employer_total.toFixed(2),
-      report.nhima.employee_total.toFixed(2),
-      report.nhima.employer_total.toFixed(2),
+      safeMoney(report.summary.total_gross_payroll),
+      safeMoney(report.zra.paye_total),
+      safeMoney(report.napsa.employee_total),
+      safeMoney(report.napsa.employer_total),
+      safeMoney(report.nhima.employee_total),
+      safeMoney(report.nhima.employer_total),
     ]);
 
     const csvContent = [
@@ -142,42 +149,42 @@ export default function RemittanceReport() {
       dataIndex: 'gross_salary',
       key: 'gross_salary',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
     {
       title: 'PAYE (ZRA)',
       dataIndex: 'paye',
       key: 'paye',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
     {
       title: 'NAPSA (Emp)',
       dataIndex: 'napsa_employee',
       key: 'napsa_employee',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
     {
       title: 'NAPSA (Empr)',
       dataIndex: 'napsa_employer',
       key: 'napsa_employer',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
     {
       title: 'NHIMA (Emp)',
       dataIndex: 'nhima_employee',
       key: 'nhima_employee',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
     {
       title: 'NHIMA (Empr)',
       dataIndex: 'nhima_employer',
       key: 'nhima_employer',
       align: 'right' as const,
-      render: (value: number) => `K ${value.toFixed(2)}`,
+      render: (value: number) => `K ${safeMoney(value)}`,
     },
   ];
 
