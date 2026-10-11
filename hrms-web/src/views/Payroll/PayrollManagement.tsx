@@ -351,7 +351,7 @@ const PayrollManagement: React.FC = () => {
     bulkCreateMutation.mutate({
       year: selectedYear,
       month: selectedMonth,
-      ...(bulkEmployerBorne ? { employer_borne_deductions: true } : {}),
+      employer_borne_deductions: bulkEmployerBorne,
     });
   };
 
