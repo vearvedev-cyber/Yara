@@ -16,14 +16,14 @@ class PayrollComponent(models.Model):
     """Payroll component defaults per position/grade for analytics and templating."""
     position = models.CharField(max_length=200, db_index=True)
     currency = models.CharField(max_length=3, default='ZMW')
-    basic = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    housing = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    basic = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    housing = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
 
     # Derived
-    gross = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    net = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    gross = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    net = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -61,12 +61,12 @@ class PayrollEntry(models.Model):
     resident = models.CharField(max_length=200, blank=True, default='')
 
     currency = models.CharField(max_length=3, default='ZMW')
-    basic = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    housing = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    gross = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    net = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    basic = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    housing = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    gross = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    net = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
 
     employer_borne_deductions = models.BooleanField(
         default=False,
@@ -88,12 +88,12 @@ class TitleBreakdown(models.Model):
 
     position = models.CharField(max_length=200, db_index=True)
     currency = models.CharField(max_length=3, default='ZMW')
-    basic = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    housing = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    gross = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    net = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    basic = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    housing = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    transportation = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    lunch = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    gross = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    net = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -130,8 +130,11 @@ class PayrollPeriod(models.Model):
         unique_together = [['year', 'month']]
         ordering = ['-year', '-month']
     
-    def __str__(self):
-        return f"{self.get_month_display()} {self.year}"
+    def __str__(self):  # type: ignore[reportCallIssue]
+        month_choices = getattr(self._meta.get_field('month'), 'choices', ())  # type: ignore[reportArgumentType,reportCallIssue]
+        month_map = {str(key): str(label) for key, label in month_choices}
+        month_label = month_map.get(str(self.month), str(self.month))  # type: ignore[reportCallIssue,reportArgumentType]
+        return f"{month_label} {self.year}"
 
 
 class Payslip(models.Model):
@@ -145,50 +148,50 @@ class Payslip(models.Model):
     
     # Basic salary components
     basic_salary = models.DecimalField(max_digits=15, decimal_places=2)
-    housing_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    transportation_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    lunch_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    other_allowances = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    housing_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    transportation_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    lunch_allowance = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    other_allowances = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
     
     # Taxable additions per ZRA (fully included in gross pay and tax calculations)
     # These may push employee into higher tax bracket for the month
     overtime_payment = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
-        default=0, 
+        default=Decimal('0'), 
         help_text="Overtime pay - fully taxable emolument, included in gross earnings"
     )
     bonus = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 
-        default=0, 
+        default=Decimal('0'), 
         help_text="Bonus payment - fully taxable emolument, included in gross earnings"
     )
     double_ticket_payment = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0,
+        default=Decimal('0'),
         help_text="Double ticket payment for Sunday/Holiday work - fully taxable emolument"
     )
     
     # Leave/Absenteeism tracking
-    unpaid_leave_days = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Days of unpaid leave")
-    unpaid_leave_deduction = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    absenteeism_days = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Days absent")
-    absenteeism_deduction = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    unpaid_leave_days = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'), help_text="Days of unpaid leave")
+    unpaid_leave_deduction = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    absenteeism_days = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0'), help_text="Days absent")
+    absenteeism_deduction = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
     
     # Calculated fields
     gross_salary = models.DecimalField(max_digits=15, decimal_places=2)
     
     # Statutory deductions (auto-calculated)
-    napsa_employee = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    napsa_employer = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    paye_tax = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    nhima_employee = models.DecimalField(max_digits=15, decimal_places=2, default=0)
-    nhima_employer = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    napsa_employee = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    napsa_employer = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    paye_tax = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    nhima_employee = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    nhima_employer = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
     
     # Other deductions
-    total_custom_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_custom_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
     
     # Final amounts
     total_deductions = models.DecimalField(max_digits=15, decimal_places=2)
@@ -420,13 +423,15 @@ class Payslip(models.Model):
             )).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
         # Collect all custom deductions
-        custom_deductions = {}
+        custom_deductions: dict[str, float | Decimal] = {}
         if self.absenteeism_deduction > 0:
             custom_deductions['Absenteeism'] = float(self.absenteeism_deduction)
-        
-        # Add deductions from PayslipDeduction model
-        for deduction in self.custom_deductions.all():
-            custom_deductions[deduction.description] = float(deduction.amount)
+
+        related_custom_deductions = getattr(self, 'custom_deductions', None)
+        if related_custom_deductions is not None:
+            # Add deductions from PayslipDeduction model
+            for deduction in related_custom_deductions.all():
+                custom_deductions[deduction.description] = float(deduction.amount)
         
         # Calculate using Zambian payroll formulas with workspace-specific settings
         # Get workspace from employee's workspace field
@@ -486,13 +491,13 @@ class WorkspaceStatutorySettings(models.Model):
     napsa_rate = models.DecimalField(
         max_digits=5, 
         decimal_places=4, 
-        default=0.05,
+        default=Decimal('0.05'),
         help_text="NAPSA employee contribution rate (default 5%)"
     )
     napsa_ceiling_monthly = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        default=34164.00,
+        default=Decimal('34164.00'),
         help_text="Monthly NAPSA ceiling (default K34,164.00)"
     )
     
@@ -500,25 +505,25 @@ class WorkspaceStatutorySettings(models.Model):
     nhima_rate = models.DecimalField(
         max_digits=5,
         decimal_places=4,
-        default=0.01,
+        default=Decimal('0.01'),
         help_text="NHIMA employee contribution rate (default 1%)"
     )
 
     # Salary split ratios — used by calculate_gross_from_net()
     basic_ratio = models.DecimalField(
-        max_digits=5, decimal_places=4, default=0.45,
+        max_digits=5, decimal_places=4, default=Decimal('0.45'),
         help_text="Fraction of gross allocated to basic salary (default 45%)"
     )
     housing_ratio = models.DecimalField(
-        max_digits=5, decimal_places=4, default=0.25,
+        max_digits=5, decimal_places=4, default=Decimal('0.25'),
         help_text="Fraction of gross allocated to housing allowance (default 25%)"
     )
     transport_ratio = models.DecimalField(
-        max_digits=5, decimal_places=4, default=0.15,
+        max_digits=5, decimal_places=4, default=Decimal('0.15'),
         help_text="Fraction of gross allocated to transportation allowance (default 15%)"
     )
     lunch_ratio = models.DecimalField(
-        max_digits=5, decimal_places=4, default=0.15,
+        max_digits=5, decimal_places=4, default=Decimal('0.15'),
         help_text="Fraction of gross allocated to lunch allowance (default 15%)"
     )
 
@@ -600,7 +605,21 @@ class ComplianceDocument(models.Model):
     workspace = models.ForeignKey(
         'core.Workspace', on_delete=models.CASCADE, related_name='compliance_documents'
     )
-    document_type = models.CharField(max_length=20, choices=DocumentType.choices)
+    document_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('NAPSA', 'NAPSA Compliance Certificate'),
+            ('NHIMA', 'NHIMA Registration Certificate'),
+            ('ZRA_TPIN', 'ZRA TPIN Certificate'),
+            ('ZRA_TCC', 'Tax Clearance Certificate (TCC)'),
+            ('WCFCB', 'Workers Compensation Certificate (WCFCB)'),
+            ('PACRA', 'PACRA Certificate / Annual Returns'),
+            ('MOL', 'Ministry of Labour Registration'),
+            ('OHS', 'OHS Compliance Record'),
+            ('SDL', 'Skills Development Levy (SDL)'),
+            ('OTHER', 'Other'),
+        ],
+    )
     document_name = models.CharField(
         max_length=200, blank=True,
         help_text="Custom display name (leave blank to use document type label)"
@@ -628,7 +647,10 @@ class ComplianceDocument(models.Model):
         verbose_name_plural = "Compliance Documents"
 
     def __str__(self):
-        return f"{self.workspace.name} — {self.get_document_type_display()}"
+        document_choices = getattr(self._meta.get_field('document_type'), 'choices', ())
+        document_map = {str(key): str(label) for key, label in document_choices}
+        document_label = document_map.get(str(self.document_type), str(self.document_type))
+        return f"{self.workspace.name} — {document_label}"
 
     @property
     def computed_status(self) -> str:
@@ -700,10 +722,10 @@ class PAYEReturn(models.Model):
     
     # Summary
     total_employees = models.PositiveIntegerField(default=0)
-    total_gross_pay = models.DecimalField(max_digits=18, decimal_places=2, default=0)
-    total_chargeable_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
-    total_tax_credit = models.DecimalField(max_digits=18, decimal_places=2, default=0)
-    total_tax_payable = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    total_gross_pay = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))
+    total_chargeable_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))
+    total_tax_credit = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))
+    total_tax_payable = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))
     
     # Status
     status = models.CharField(
@@ -809,7 +831,11 @@ class PAYEReturn(models.Model):
                 employee_nature = engagement_contract.get_name_display()
                 contractor_type = engagement_contract.name
             else:
-                employee_nature = employee.get_contractor_type_display()
+                employee_nature = getattr(
+                    employee,
+                    'get_contractor_type_display',
+                    lambda: getattr(employee, 'contractor_type', '')
+                )()
                 contractor_type = employee.contractor_type
 
             row = {

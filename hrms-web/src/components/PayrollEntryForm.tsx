@@ -1,4 +1,4 @@
-import { Modal, Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Button, Space, Alert, Switch, Tooltip } from 'antd';
+import { Modal, Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Space, Alert, Switch, Tooltip } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import http from '../lib/http';
 import { useQuery } from '@tanstack/react-query';
@@ -42,7 +42,7 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
   const [employerBorne, setEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999999.99;
 
-  const handleEmployerBorneToggle = (checked: boolean) => {
+  const handleEmployerBorneToggle = async (checked: boolean) => {
     setEmployerBorne(checked);
 
     const currentBasic = asNumber(form.getFieldValue('basic'), 0);
@@ -75,12 +75,30 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       return;
     }
 
-    const fallbackNet = currentNet > 0 ? currentNet : currentGross > 0 ? currentGross : 0;
-    autoCalcRef.current = true;
-    form.setFieldsValue({ net: fallbackNet });
-    setTimeout(() => { autoCalcRef.current = false; }, 0);
-    setLiveGross(currentGross > 0 ? currentGross : fallbackNet);
-    setLiveNet(fallbackNet);
+    const targetNet = currentNet > 0 ? currentNet : currentGross > 0 ? currentGross : 0;
+    if (targetNet <= 0) {
+      setLiveGross(0);
+      setLiveNet(0);
+      return;
+    }
+
+    try {
+      const response = await http.post('/api/v1/payroll/payslips/calculate_from_net/', {
+        net_salary: targetNet,
+      });
+      const data = response.data;
+      setNetCalcResult(data);
+      applyNetCalcResult(data, targetNet);
+      form.setFieldsValue({ net: targetNet });
+      setLiveNet(targetNet);
+    } catch (error: any) {
+      console.warn('Could not reverse employer-borne mode:', error.message);
+      autoCalcRef.current = true;
+      form.setFieldsValue({ net: targetNet });
+      setTimeout(() => { autoCalcRef.current = false; }, 0);
+      setLiveGross(currentGross > 0 ? currentGross : targetNet);
+      setLiveNet(targetNet);
+    }
   };
 
   // Salary split ratios — updated from net-calc API result; defaults match backend
@@ -114,25 +132,28 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
 
   // Helper: apply net-calc result to form fields, store ratios, update live summary
   const applyNetCalcResult = (data: any, enteredNet?: number) => {
-    const g = asNumber(data?.gross_salary, 0);
-    if (g > 0) {
+    const gross = asNumber(data?.gross_salary, 0);
+    const effectiveGross = gross > 0 ? gross : asNumber(enteredNet ?? 0, 0);
+
+    if (effectiveGross > 0) {
       ratiosRef.current = {
-        basic: asNumber(data?.basic_salary, 0) / g,
-        housing: asNumber(data?.housing_allowance, 0) / g,
-        transport: asNumber(data?.transportation_allowance, 0) / g,
-        lunch: asNumber(data?.lunch_allowance, 0) / g,
+        basic: asNumber(data?.basic_salary, 0) / effectiveGross || ratiosRef.current.basic,
+        housing: asNumber(data?.housing_allowance, 0) / effectiveGross || ratiosRef.current.housing,
+        transport: asNumber(data?.transportation_allowance, 0) / effectiveGross || ratiosRef.current.transport,
+        lunch: asNumber(data?.lunch_allowance, 0) / effectiveGross || ratiosRef.current.lunch,
       };
     }
+
     autoCalcRef.current = true;
     form.setFieldsValue({
-      basic: asNumber(data?.basic_salary, 0),
-      housing: asNumber(data?.housing_allowance, 0),
-      transportation: asNumber(data?.transportation_allowance, 0),
-      lunch: asNumber(data?.lunch_allowance, 0),
+      basic: asNumber(data?.basic_salary, 0) || 0,
+      housing: asNumber(data?.housing_allowance, 0) || 0,
+      transportation: asNumber(data?.transportation_allowance, 0) || 0,
+      lunch: asNumber(data?.lunch_allowance, 0) || 0,
     });
     setTimeout(() => { autoCalcRef.current = false; }, 0);
-    setLiveGross(g);
-    setLiveNet(asNumber(enteredNet ?? g * 0.7, 0));
+    setLiveGross(effectiveGross);
+    setLiveNet(asNumber(enteredNet ?? effectiveGross, 0));
   };
 
   // Recomputes both liveGross and liveNet from current form values
@@ -321,30 +342,6 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
       setLoading(false);
     }
   };
-
-  const handleCalculateFromNet = async () => {
-    const netSalary = form.getFieldValue('net');
-    if (!netSalary || Number(netSalary) <= 0) {
-      message.error('Please enter a net salary amount');
-      return;
-    }
-    try {
-      setNetCalcLoading(true);
-      const response = await http.post('/api/v1/payroll/payslips/calculate_from_net/', {
-        net_salary: netSalary,
-      });
-      const data = response.data;
-      setNetCalcResult(data);
-      applyNetCalcResult(data);
-      message.success('Salary components calculated from net salary');
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || 'Failed to calculate from net salary';
-      message.error(errorMsg);
-    } finally {
-      setNetCalcLoading(false);
-    }
-  };
-
 
   return (
     <Modal

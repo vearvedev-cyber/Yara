@@ -4,6 +4,10 @@ Handles NAPSA, PAYE, and NHIMA calculations according to 2025/2026 rates
 Supports workspace-specific statutory settings
 """
 
+from decimal import Decimal
+from typing import Any
+
+
 def get_statutory_settings(workspace=None):
     """
     Fetch statutory settings for a workspace, with fallback to defaults.
@@ -65,7 +69,12 @@ def get_paye_tax_bands(workspace=None):
     ]
 
 
-def calculate_zambian_payroll(gross_salary, unpaid_leave_deduction=0, custom_deductions=None, workspace=None):
+def calculate_zambian_payroll(
+    gross_salary: float | Decimal,
+    unpaid_leave_deduction: float | Decimal = 0.0,
+    custom_deductions: dict[str, float | Decimal] | None = None,
+    workspace=None,
+) -> dict[str, Any]:
     """
     Calculate Zambian payroll with statutory deductions
     Supports workspace-specific rates and tax bands
@@ -218,7 +227,10 @@ def get_tax_band_breakdown(chargeable_income, workspace=None):
     
     return breakdown
 
-def calculate_gross_from_net(net_salary, workspace=None):
+def calculate_gross_from_net(
+    net_salary: float | Decimal,
+    workspace=None,
+) -> dict[str, Any]:
     """
     Reverse-calculate gross salary from net using iterative approach.
     Finds the gross salary that, when all deductions are applied, results in the target net.
