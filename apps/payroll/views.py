@@ -452,12 +452,14 @@ class PayslipViewSet(viewsets.ModelViewSet):
             period_end = datetime(year=int(year), month=int(month)+1, day=1).date()
         
         for employee in employees:
-            # Check if payslip already exists
-            if Payslip.objects.filter(employee=employee, period=period).exists():
+            existing_payslip = Payslip.objects.filter(employee=employee, period=period).first()
+
+            # If a payslip already exists, only skip it if there is no explicit bulk override.
+            if existing_payslip and bulk_employer_borne is None:
                 errors.append(f"Payslip already exists for {employee.full_name}")
                 skipped_existing += 1
                 continue
-            
+
             # Try to get salary structure from PayrollEntry (Salary Management Dashboard)
             payroll_entry = employee.payroll_entries.order_by('-updated_at', '-created_at').first()
             
@@ -558,28 +560,43 @@ class PayslipViewSet(viewsets.ModelViewSet):
             else:
                 employer_borne = bool(getattr(payroll_entry, 'employer_borne_deductions', False))
 
-            payslip = Payslip.objects.create(
-                employee=employee,
-                period=period,
-                basic_salary=basic_salary,
-                housing_allowance=housing_allowance,
-                transportation_allowance=transportation_allowance,
-                lunch_allowance=lunch_allowance,
-                other_allowances=0,
-                overtime_payment=double_ticket_amount,  # Double ticket is a form of overtime
-                unpaid_leave_days=unpaid_leave_days,
-                absenteeism_days=absenteeism_days,
-                gross_salary=0,
-                total_deductions=0,
-                net_salary=0,
-                employer_borne_deductions=employer_borne,
-                notes='; '.join(notes)
-            )
-            
+            if existing_payslip:
+                payslip = existing_payslip
+                payslip.employee = employee
+                payslip.period = period
+                payslip.basic_salary = basic_salary
+                payslip.housing_allowance = housing_allowance
+                payslip.transportation_allowance = transportation_allowance
+                payslip.lunch_allowance = lunch_allowance
+                payslip.other_allowances = 0
+                payslip.overtime_payment = double_ticket_amount
+                payslip.unpaid_leave_days = unpaid_leave_days
+                payslip.absenteeism_days = absenteeism_days
+                payslip.employer_borne_deductions = employer_borne
+                payslip.notes = '; '.join(notes)
+            else:
+                payslip = Payslip.objects.create(
+                    employee=employee,
+                    period=period,
+                    basic_salary=basic_salary,
+                    housing_allowance=housing_allowance,
+                    transportation_allowance=transportation_allowance,
+                    lunch_allowance=lunch_allowance,
+                    other_allowances=0,
+                    overtime_payment=double_ticket_amount,  # Double ticket is a form of overtime
+                    unpaid_leave_days=unpaid_leave_days,
+                    absenteeism_days=absenteeism_days,
+                    gross_salary=0,
+                    total_deductions=0,
+                    net_salary=0,
+                    employer_borne_deductions=employer_borne,
+                    notes='; '.join(notes)
+                )
+
             # Calculate all deductions and net
             payslip.calculate()
             payslip.save()
-            
+
             created_payslips.append(payslip)
         
         serializer = PayslipSerializer(created_payslips, many=True)
