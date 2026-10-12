@@ -229,13 +229,15 @@ export default function Demography() {
   const [pendingJobTitle, setPendingJobTitle] = useState<string | null>(null);
   const [pendingHireRange, setPendingHireRange] = useState<any>(null);
   const [pendingEmployeeName, setPendingEmployeeName] = useState<string | null>(null);
-  const [appliedFilters, setAppliedFilters] = useState<{ dept: string | null; status: string | null; jobTitle: string | null; hireFrom?: string | null; hireTo?: string | null; employeeName?: string | null }>({
+  const [appliedFilters, setAppliedFilters] = useState<{ dept: string | null; status: string | null; jobTitle: string | null; hireFrom?: string | null; hireTo?: string | null; employeeName?: string | null; gender?: string | null; expiringWithin30?: boolean | null }>({
     dept: null,
     status: null,
     jobTitle: null,
     hireFrom: null,
     hireTo: null,
     employeeName: null,
+    gender: null,
+    expiringWithin30: null,
   });
 
   const beneficiaryEmployeeId = editingId;
@@ -273,6 +275,47 @@ export default function Demography() {
     () => employeesData?.results ?? (employeesData as any) ?? [],
     [employeesData]
   );
+
+  const { data: allEngagements = [] } = useQuery<any[]>({
+    queryKey: ['all-engagements', workspaceId],
+    queryFn: async () => {
+      const response = await http.get('/api/v1/hcm/engagements/', { params: { page_size: 500 } });
+      return Array.isArray(response.data?.results) ? response.data.results : (Array.isArray(response.data) ? response.data : []);
+    },
+    enabled: !!workspaceId,
+  });
+
+  const engagementByEmployee = useMemo(() => {
+    const map = new Map<number, any>();
+    for (const item of allEngagements) {
+      if (!item?.employee) continue;
+      const employeeId = Number(item.employee);
+      const current = map.get(employeeId);
+      if (!current || (item.initial_contract_end_date && (!current.initial_contract_end_date || new Date(item.initial_contract_end_date) > new Date(current.initial_contract_end_date)))) {
+        map.set(employeeId, item);
+      }
+    }
+    return map;
+  }, [allEngagements]);
+
+  const normalizeGenderValue = (value?: string | null) => {
+    const normalized = (value ?? '').toString().trim().toUpperCase();
+    if (normalized === 'M') return 'Male';
+    if (normalized === 'F') return 'Female';
+    if (normalized === 'OTHER') return 'Other';
+    if (normalized === 'MALE') return 'Male';
+    if (normalized === 'FEMALE') return 'Female';
+    if (normalized) return 'Other';
+    return 'Unknown';
+  };
+
+  const isContractExpiringSoon = (emp: EmployeeRow) => {
+    const engagement = engagementByEmployee.get(emp.id);
+    const endDate = engagement?.initial_contract_end_date;
+    if (!endDate) return false;
+    const diffDays = Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 30;
+  };
 
   // Filter active employees (exclude terminated) for statistics cards
   const activeEmployees = useMemo(
@@ -346,7 +389,13 @@ export default function Demography() {
         ? emp.department_name?.toLowerCase() === appliedFilters.dept.toLowerCase()
         : true;
       const matchesStatus = appliedFilters.status
-        ? emp.employment_status === appliedFilters.status
+        ? emp.employment_status?.toLowerCase() === appliedFilters.status.toLowerCase()
+        : true;
+      const matchesGender = appliedFilters.gender
+        ? normalizeGenderValue(emp.gender) === appliedFilters.gender
+        : true;
+      const matchesExpiring = appliedFilters.expiringWithin30 === true
+        ? isContractExpiringSoon(emp)
         : true;
       const matchesJobTitle = appliedFilters.jobTitle
         ? emp.job_title?.toLowerCase() === appliedFilters.jobTitle.toLowerCase()
@@ -357,9 +406,22 @@ export default function Demography() {
       const hire = emp.hire_date ? new Date(emp.hire_date) : null;
       const fromOk = appliedFilters.hireFrom ? (!!hire && hire >= new Date(appliedFilters.hireFrom)) : true;
       const toOk = appliedFilters.hireTo ? (!!hire && hire <= new Date(appliedFilters.hireTo)) : true;
-      return matchesDept && matchesStatus && matchesJobTitle && matchesName && fromOk && toOk;
+      return matchesDept && matchesStatus && matchesGender && matchesExpiring && matchesJobTitle && matchesName && fromOk && toOk;
     });
-  }, [employees, appliedFilters]);
+  }, [employees, appliedFilters, engagementByEmployee]);
+
+  const clearEmployeeFilters = () => {
+    setAppliedFilters({
+      dept: null,
+      status: null,
+      jobTitle: null,
+      hireFrom: null,
+      hireTo: null,
+      employeeName: null,
+      gender: null,
+      expiringWithin30: null,
+    });
+  };
 
   const jobTitles = useMemo(() => {
     const titles = new Set(employees.map((e) => e.job_title).filter(Boolean));
@@ -925,7 +987,15 @@ export default function Demography() {
         {/* Summary Cards */}
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={8} lg={4}>
-            <Card>
+            <Card
+              onClick={() => clearEmployeeFilters()}
+              hoverable
+              style={{
+                cursor: 'pointer',
+                border: !appliedFilters.status && !appliedFilters.gender && appliedFilters.expiringWithin30 !== true ? '1px solid #1890ff' : undefined,
+                background: !appliedFilters.status && !appliedFilters.gender && appliedFilters.expiringWithin30 !== true ? 'rgba(24, 144, 255, 0.04)' : undefined,
+              }}
+            >
               <Statistic
                 title="Total Employees"
                 value={summaryData?.employees?.total ?? 0}
@@ -936,7 +1006,15 @@ export default function Demography() {
             </Card>
           </Col>
           <Col xs={24} sm={12} md={8} lg={4}>
-            <Card>
+            <Card
+              onClick={() => setAppliedFilters((prev) => ({ ...prev, status: 'TERMINATED', gender: null, expiringWithin30: null }))}
+              hoverable
+              style={{
+                cursor: 'pointer',
+                border: appliedFilters.status?.toLowerCase() === 'terminated' ? '1px solid #f5222d' : undefined,
+                background: appliedFilters.status?.toLowerCase() === 'terminated' ? 'rgba(245, 34, 45, 0.04)' : undefined,
+              }}
+            >
               <Statistic
                 title="Terminated"
                 value={summaryData?.employees?.terminated ?? 0}
@@ -947,7 +1025,15 @@ export default function Demography() {
             </Card>
           </Col>
           <Col xs={24} sm={12} md={8} lg={4}>
-            <Card>
+            <Card
+              onClick={() => setAppliedFilters((prev) => ({ ...prev, status: null, gender: null, expiringWithin30: true }))}
+              hoverable
+              style={{
+                cursor: 'pointer',
+                border: appliedFilters.expiringWithin30 === true ? '1px solid #722ed1' : undefined,
+                background: appliedFilters.expiringWithin30 === true ? 'rgba(114, 46, 209, 0.04)' : undefined,
+              }}
+            >
               <Statistic
                 title="Contracts Expiring (30d)"
                 value={summaryData?.situations?.contracts_expiring_30d ?? 0}
@@ -964,7 +1050,19 @@ export default function Demography() {
             <Card title="Gender Breakdown">
               <Space direction="vertical" style={{ width: '100%' }} size="small">
                 {genderSummary.map((row) => (
-                  <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div
+                    key={row.label}
+                    onClick={() => setAppliedFilters((prev) => ({ ...prev, gender: row.label, status: null, expiringWithin30: null }))}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      padding: '4px 6px',
+                      borderRadius: 6,
+                      border: appliedFilters.gender === row.label ? '1px solid #faad14' : '1px solid transparent',
+                      background: appliedFilters.gender === row.label ? 'rgba(250, 173, 20, 0.08)' : 'transparent',
+                    }}
+                  >
                     <Text>{row.label}</Text>
                     <Tag color="gold">{row.count}</Tag>
                   </div>
