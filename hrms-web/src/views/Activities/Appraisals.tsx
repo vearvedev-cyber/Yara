@@ -540,6 +540,7 @@ export default function Appraisals() {
         title={manageId ? `Manage Appraisal #${manageId}` : ''}
         open={!!manageId}
         onClose={closeManageDrawer}
+        placement="right"
         destroyOnClose
         closeIcon={
           <button

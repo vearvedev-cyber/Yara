@@ -7,6 +7,7 @@ import {
   Select,
   message,
   Drawer,
+  Grid,
   Form,
   InputNumber,
   Tag,
@@ -136,6 +137,8 @@ const PayrollManagement: React.FC = () => {
   const [filterDepartment, setFilterDepartment] = useState<string | undefined>(undefined);
   const [bulkEmployerBorne, setBulkEmployerBorne] = useState(false);
   const MAX_SALARY = 9999999999.99;
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const safeNumber = (value: unknown, fallback = 0) => {
     const num = Number(value);
@@ -1187,8 +1190,13 @@ const PayrollManagement: React.FC = () => {
           setDrawerVisible(false);
           setEditingPayslip(null);
           form.resetFields();
+          setCustomDeductions([]);
         }}
-        size="large"
+        placement={isMobile ? 'bottom' : 'right'}
+        height={isMobile ? '85vh' : undefined}
+        width={isMobile ? '100%' : 920}
+        size={isMobile ? undefined : 'large'}
+        destroyOnClose
         closeIcon={
           <button
             type="button"
@@ -1197,6 +1205,7 @@ const PayrollManagement: React.FC = () => {
               setDrawerVisible(false);
               setEditingPayslip(null);
               form.resetFields();
+              setCustomDeductions([]);
             }}
             style={{
               background: 'transparent',

@@ -1,7 +1,8 @@
-import { Modal, Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Space, Alert, Switch, Tooltip } from 'antd';
+import { Form, Input, Select, InputNumber, message, Divider, Card, Row, Col, Space, Alert, Switch, Tooltip } from 'antd';
 import { useState, useEffect, useRef } from 'react';
 import http from '../lib/http';
 import { useQuery } from '@tanstack/react-query';
+import MobileModal from './MobileModal';
 
 interface PayrollEntry {
   id: number;
@@ -344,10 +345,10 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
   };
 
   return (
-    <Modal
+    <MobileModal
       title={entry ? 'Edit Payroll Entry' : 'Add Employee to Payroll'}
       open={visible}
-      onCancel={onClose}
+      onClose={onClose}
       onOk={() => form.submit()}
       confirmLoading={loading}
       width={600}
@@ -509,6 +510,6 @@ export default function PayrollEntryForm({ visible, onClose, onSuccess, entry }:
           </div>
         </Card>
       </Form>
-    </Modal>
+    </MobileModal>
   );
 }
