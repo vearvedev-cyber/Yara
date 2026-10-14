@@ -7,6 +7,7 @@ import { addDevelopmentItem, addFactor, addImprovement, addNextObjective, addObj
 import { UploadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import http from '../../lib/http';
 import { HeroBanner } from '../../components/HeroBanner';
+import MobileModal from '../../components/MobileModal';
 
 const { RangePicker } = DatePicker;
 
@@ -127,6 +128,26 @@ export default function Appraisals() {
     enabled: !!workspaceId,
   });
 
+  const closeCreateAppraisalModal = () => {
+    setCreateOpen(false);
+    setEditingId(null);
+    createForm.resetFields();
+  };
+
+  const closeManageDrawer = () => {
+    setManageId(null);
+    setObjectiveEditingId(null);
+    setFactorEditingId(null);
+    setImproveEditingId(null);
+    setNextEditingId(null);
+    setDevEditingId(null);
+    objectiveForm.resetFields();
+    factorForm.resetFields();
+    improveForm.resetFields();
+    nextObjForm.resetFields();
+    devForm.resetFields();
+  };
+
   const createMut = useMutation({
     mutationFn: async (vals: any) => {
       const payload = {
@@ -149,9 +170,7 @@ export default function Appraisals() {
     },
     onSuccess: () => {
       message.success(editingId ? 'Appraisal updated' : 'Appraisal created');
-      setCreateOpen(false);
-      setEditingId(null);
-      createForm.resetFields();
+      closeCreateAppraisalModal();
       qc.invalidateQueries({ queryKey: ['appraisals'] });
     },
     onError: () => message.error('Could not create appraisal'),
@@ -461,10 +480,10 @@ export default function Appraisals() {
         <MobileTable rowKey={(r: any) => r.id} loading={isLoading} columns={columns as any} dataSource={appraisals} />
       </Card>
 
-      <Modal
+      <MobileModal
         title={editingId ? `Edit Appraisal #${editingId}` : 'New Appraisal'}
         open={createOpen}
-        onCancel={() => { setCreateOpen(false); setEditingId(null); createForm.resetFields(); }}
+        onClose={closeCreateAppraisalModal}
         onOk={() => createForm.submit()}
         okText={editingId ? 'Save' : 'Create'}
         confirmLoading={createMut.isPending}
@@ -514,19 +533,19 @@ export default function Appraisals() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Form>
-      </Modal>
+      </MobileModal>
 
       <Drawer
         width={920}
         title={manageId ? `Manage Appraisal #${manageId}` : ''}
         open={!!manageId}
-        onClose={() => setManageId(null)}
+        onClose={closeManageDrawer}
         destroyOnClose
         closeIcon={
           <button
             type="button"
             aria-label="Close appraisal manager"
-            onClick={() => setManageId(null)}
+            onClick={closeManageDrawer}
             style={{
               background: 'transparent',
               border: 'none',

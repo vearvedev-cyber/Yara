@@ -1,5 +1,6 @@
 import { Card, Row, Col, Statistic, Space, Empty, Button, Modal, Form, Input, InputNumber, message, Select, Slider } from 'antd';
 import MobileTable from '../components/MobileTable';
+import MobileModal from '../components/MobileModal';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useSalaryRanges, useTitleBreakdowns, usePayrollEntries, useCreateTitleBreakdown, useUpdateTitleBreakdown, useDeleteTitleBreakdown } from '@/lib/hooks/useSalaryManagement';
@@ -35,6 +36,17 @@ export const SalaryManagementDashboard = () => {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
+
+  const closeTitleBreakdownModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    form.resetFields();
+  };
+
+  const closeEmployeeModal = () => {
+    setIsEmployeeModalOpen(false);
+    employeeForm.resetFields();
+  };
 
   const handleAddNew = () => {
     form.resetFields();
@@ -77,8 +89,7 @@ export const SalaryManagementDashboard = () => {
         await createTitleBreakdown.mutateAsync(values);
         message.success('Created successfully');
       }
-      setIsModalOpen(false);
-      form.resetFields();
+      closeTitleBreakdownModal();
     } catch (error) {
       message.error('Operation failed');
     }
@@ -386,11 +397,11 @@ export const SalaryManagementDashboard = () => {
       </Card>
 
       {/* Add/Edit Modal */}
-      <Modal
+      <MobileModal
         title={editingId ? 'Edit Position Pay' : 'Add New Position'}
         open={isModalOpen}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalOpen(false)}
+        onClose={closeTitleBreakdownModal}
         width={600}
       >
         <Form
@@ -478,14 +489,14 @@ export const SalaryManagementDashboard = () => {
             </Col>
           </Row>
         </Form>
-      </Modal>
+      </MobileModal>
 
       {/* Add Employee Payroll Modal */}
-      <Modal
+      <MobileModal
         title="Add Employee to Payroll"
         open={isEmployeeModalOpen}
         onOk={() => employeeForm.submit()}
-        onCancel={() => setIsEmployeeModalOpen(false)}
+        onClose={closeEmployeeModal}
         width={700}
       >
         <Form
@@ -510,8 +521,7 @@ export const SalaryManagementDashboard = () => {
               
               await http.post('/api/v1/payroll/entries/', payload);
               message.success('Employee added to payroll');
-              setIsEmployeeModalOpen(false);
-              employeeForm.resetFields();
+              closeEmployeeModal();
               await refetch();
               queryClient.invalidateQueries({ queryKey: ['salaryRanges'] });
             } catch (error: any) {
@@ -610,7 +620,7 @@ export const SalaryManagementDashboard = () => {
             </Col>
           </Row>
         </Form>
-      </Modal>
+      </MobileModal>
     </div>
   );
 };

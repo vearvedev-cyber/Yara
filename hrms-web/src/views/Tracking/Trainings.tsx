@@ -184,9 +184,11 @@ export default function Trainings() {
             <AutoComplete
               placeholder="Type training type"
               options={(trainingTypes || []).map((t: any) => ({ value: t.name }))}
-              filterOption={(input, option) =>
-                (option?.value || '').toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const inputValue = String(input ?? '').toLowerCase();
+                const optionValue = String(option?.value ?? '').toLowerCase();
+                return optionValue.includes(inputValue);
+              }}
             />
           </Form.Item>
           <Form.Item name="provider" label="Provider" rules={[{ required: true }]}>
