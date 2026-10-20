@@ -5,12 +5,12 @@ import {
   Button,
   Input,
   message,
-  Modal,
   Form,
   Tag,
   Empty,
   Badge,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import {
   PlusOutlined,
   CheckCircleOutlined,

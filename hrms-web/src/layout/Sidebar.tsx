@@ -85,6 +85,7 @@ export default function Sidebar({ activePath, onNavClick }: { activePath: string
         { key: '/payroll/employer-contributions', label: <Link to="/payroll/employer-contributions">Employer Costs</Link> },
         { key: '/payroll/remittance-report', label: <Link to="/payroll/remittance-report">Remittance Report</Link> },
         { key: '/payroll/statutory-returns', label: <Link to="/payroll/statutory-returns">Statutory Returns</Link> },
+        { key: '/payroll/settlements', label: <Link to="/payroll/settlements">Final Settlements</Link> },
       ]
     },
     {
@@ -112,6 +113,7 @@ export default function Sidebar({ activePath, onNavClick }: { activePath: string
       children: [
         { key: '/settings/roles', label: <Link to="/settings/roles">Roles Management</Link> },
         { key: '/settings/statutory', label: <Link to="/settings/statutory">Statutory Settings</Link> },
+        { key: '/settings/leave', label: <Link to="/settings/leave">Leave, Holidays & Gratuity</Link> },
         { key: '/settings/access-requests', label: <Link to="/settings/access-requests">Access Requests</Link> },
         { key: '/debug/workspaces', label: <Link to="/debug/workspaces">Debug Workspace Access</Link> },
       ]

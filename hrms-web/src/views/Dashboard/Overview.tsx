@@ -1,4 +1,5 @@
-import { Select, DatePicker, Tag, Spin, Row, Col, Button, Input, Progress, Badge, Modal, List, Typography } from 'antd';
+import { Select, DatePicker, Tag, Spin, Row, Col, Button, Input, Progress, Badge, List, Typography } from 'antd';
+import { Modal } from '@/components/overlays';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';

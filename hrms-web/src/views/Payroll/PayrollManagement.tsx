@@ -6,12 +6,10 @@ import {
   Space,
   Select,
   message,
-  Drawer,
   Grid,
   Form,
   InputNumber,
   Tag,
-  Modal,
   Typography,
   Divider,
   Spin,
@@ -26,6 +24,7 @@ import {
   Switch,
   Tooltip,
 } from 'antd';
+import { Drawer, Modal } from '@/components/overlays';
 import {
   PlusOutlined,
   CalculatorOutlined,

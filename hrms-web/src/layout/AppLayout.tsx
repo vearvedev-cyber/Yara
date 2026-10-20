@@ -1,4 +1,6 @@
-import { Layout, Drawer, Grid } from 'antd';
+// Plain antd Drawer for the navigation menu: tapping a menu item navigates, so back-to-close
+// would leave an extra history entry behind.
+import { Layout, Grid, Drawer } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import HeaderBar from './HeaderBar';

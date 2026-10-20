@@ -1,4 +1,5 @@
-import { Button, Tag, Space, Modal, Form, Input, Select, message, DatePicker, Upload, Card, Row, Col } from 'antd';
+import { Button, Tag, Space, Form, Input, Select, message, DatePicker, Upload, Card, Row, Col } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, UploadOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Stethoscope } from 'lucide-react';

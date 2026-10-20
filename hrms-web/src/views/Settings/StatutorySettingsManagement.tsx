@@ -6,7 +6,6 @@ import {
   Space,
   Table,
   message,
-  Modal,
   InputNumber,
   Divider,
   Row,
@@ -21,6 +20,7 @@ import {
   Tooltip,
   Badge,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import {
   SaveOutlined,
   PlusOutlined,

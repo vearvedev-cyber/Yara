@@ -36,6 +36,9 @@ import Absenteeism from './views/Leave/Absenteeism';
 import UserProfile from './views/Profile/UserProfile';
 import RolesManagement from './views/Settings/RolesManagement';
 import StatutorySettingsManagement from './views/Settings/StatutorySettingsManagement';
+import LeaveSettings from './views/Settings/LeaveSettings';
+import FinalSettlements from './views/Payroll/FinalSettlements';
+import FinalSettlementDetail from './views/Payroll/FinalSettlementDetail';
 import PayrollManagement from './views/Payroll/PayrollManagement';
 import EmployerContributions from './views/Payroll/EmployerContributions';
 import RemittanceReport from './views/Payroll/RemittanceReport';
@@ -86,10 +89,13 @@ export const router = createHashRouter([
       { path: 'analytics/era', element: <ERA /> },
       { path: 'settings/roles', element: <RolesManagement /> },
       { path: 'settings/statutory', element: <StatutorySettingsManagement /> },
+      { path: 'settings/leave', element: <LeaveSettings /> },
       { path: 'payroll/management', element: <PayrollManagement /> },
       { path: 'payroll/employer-contributions', element: <EmployerContributions /> },
       { path: 'payroll/remittance-report', element: <RemittanceReport /> },
       { path: 'payroll/statutory-returns', element: <StatutoryReturns /> },
+      { path: 'payroll/settlements', element: <FinalSettlements /> },
+      { path: 'payroll/settlements/:id', element: <FinalSettlementDetail /> },
       { path: 'workspace-directory', element: <WorkspaceDirectory /> },
       { path: 'settings/access-requests', element: <AccessRequestsManagement /> },
       { path: 'debug/workspaces', element: <WorkspaceDebug /> },

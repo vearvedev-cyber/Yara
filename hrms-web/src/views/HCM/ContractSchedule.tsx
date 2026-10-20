@@ -1,4 +1,5 @@
-import { Card, Tag, Space, Input, Select, Button, Modal, Form, message, DatePicker } from 'antd';
+import { Card, Tag, Space, Input, Select, Button, Form, message, DatePicker } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import React, { useMemo, useState } from 'react';
@@ -6,6 +7,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import http from '../../lib/http';
 import dayjs from 'dayjs';
 import { HeroBanner } from '../../components/HeroBanner';
+import { gratuityApi, gratuityStatusColor, gratuityStatusLabel } from '@/api/services/gratuityApi';
+import type { ContractGratuity } from '@/api/services/gratuityApi';
+import GratuityBreakdown from '../Payroll/GratuityBreakdown';
 
 export default function ContractSchedule() {
   const [form] = Form.useForm();
@@ -79,6 +83,19 @@ export default function ContractSchedule() {
     },
     onError: () => message.error('Failed to update contract'),
   });
+
+  // Gratuity for fixed-term contracts (calculated from payslips by the backend)
+  const [gratuityContract, setGratuityContract] = useState<number | null>(null);
+  const { data: gratuityData } = useQuery({
+    queryKey: ['gratuity', 'list', workspaceId],
+    queryFn: () => gratuityApi.list(),
+    enabled: !!workspaceId,
+  });
+  const gratuityByContract = useMemo(() => {
+    const map = new Map<number, ContractGratuity>();
+    (gratuityData?.results ?? []).forEach((g) => map.set(g.contract, g));
+    return map;
+  }, [gratuityData]);
 
   // Employee map for enrichment
   const employeeMap = useMemo(() => {
@@ -171,6 +188,22 @@ export default function ContractSchedule() {
       },
     },
     { title: 'Salary', dataIndex: 'basic_salary' },
+    {
+      title: 'Gratuity',
+      dataIndex: 'id',
+      key: 'gratuity',
+      render: (id: number) => {
+        const g = gratuityByContract.get(id);
+        if (!g || !g.eligible) return '-';
+        const amount = g.status === 'ACCRUING' ? g.gratuity_earned : g.outstanding;
+        return (
+          <Space size={4} style={{ cursor: 'pointer' }} onClick={() => setGratuityContract(id)}>
+            <span>K {Number(amount).toLocaleString('en-ZM', { minimumFractionDigits: 2 })}</span>
+            <Tag color={gratuityStatusColor[g.status]}>{gratuityStatusLabel[g.status]}</Tag>
+          </Space>
+        );
+      },
+    },
   ];
 
   return (
@@ -298,6 +331,8 @@ export default function ContractSchedule() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <GratuityBreakdown contractId={gratuityContract} onClose={() => setGratuityContract(null)} />
 
       {/* View Contract Modal */}
       <Modal

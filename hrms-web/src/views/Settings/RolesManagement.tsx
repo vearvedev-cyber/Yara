@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import MobileTable from '../../components/MobileTable';
 import {
   Button,
-  Modal,
   Form,
   Input,
   Checkbox,
@@ -21,6 +20,7 @@ import {
   Alert,
   Typography,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UserAddOutlined, CopyOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import http from '../../lib/http';

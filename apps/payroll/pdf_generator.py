@@ -113,6 +113,10 @@ def generate_payslip_pdf(payslip, workspace_name=None):
 
     draw_separator('-')
     draw_row('GROSS SALARY', f"{currency} {fmt(payslip.gross_salary)}", bold_label=True, bold_value=True)
+    if float(getattr(payslip, 'paye_gross_up', 0) or 0) > 0:
+        # Free-of-tax pay: PAYE paid by the employer is a taxable benefit
+        draw_row('PAYE paid by employer (taxable benefit)', fmt(payslip.paye_gross_up))
+        draw_row('TAXABLE PAY', f"{currency} {fmt(payslip.taxable_pay)}", bold_label=True)
     draw_separator()
 
     # ======= DEDUCTIONS =======

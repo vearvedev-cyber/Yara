@@ -1,4 +1,5 @@
-import { Button, Tag, Space, Modal, Form, Input, Select, message, Upload, Card } from 'antd';
+import { Button, Tag, Space, Form, Input, Select, message, Upload, Card } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { PlusOutlined, EyeOutlined, UploadOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

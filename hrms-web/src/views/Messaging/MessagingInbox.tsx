@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Input, Avatar, Typography, Space, Button, Badge, Divider, Layout, Spin, Modal, Select, message } from 'antd';
+import { Card, Input, Avatar, Typography, Space, Button, Badge, Divider, Layout, Spin, Select, message } from 'antd';
+import { Modal } from '@/components/overlays';
 import { SendOutlined, ArrowLeftOutlined, TeamOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

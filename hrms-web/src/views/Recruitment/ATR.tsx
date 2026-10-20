@@ -1,4 +1,5 @@
-import { Table, Button, Modal, Form, Input, Select, DatePicker, message, Tag, Row, Col, InputNumber, Card, Space } from 'antd';
+import { Table, Button, Form, Input, Select, DatePicker, message, Tag, Row, Col, InputNumber, Card, Space } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { PlusOutlined, EyeOutlined, EditOutlined, DeleteOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useMemo, useState } from 'react';

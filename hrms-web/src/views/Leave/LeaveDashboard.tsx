@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Card, Row, Col, Tag, Button, Modal, Form, Input, Select, DatePicker, Upload, message, Statistic, Empty, Space, Descriptions } from 'antd';
+import { Card, Row, Col, Tag, Button, Form, Input, Select, DatePicker, Upload, message, Statistic, Empty, Space, Descriptions } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { PlusOutlined, UploadOutlined, DownloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { CalendarDays, FileText } from 'lucide-react';
@@ -10,7 +11,9 @@ import { Dayjs } from 'dayjs';
 import { exportTableToPDF } from '@/lib/pdfExport';
 import { HeroBanner } from '@/components/HeroBanner';
 import { useLeaveRequests, useCreateLeaveRequest, useSickNotes, useCreateSickNote, useApproveLeave, useRejectLeave, useCancelLeave, useApproveSickNote, useRejectSickNote, useDoubleTickets, useCreateDoubleTicket, useApproveDoubleTicket, useRejectDoubleTicket, useDeleteLeaveRequest, useDeleteSickNote, useDeleteDoubleTicket } from '@/lib/hooks/useLeave';
-import type { LeaveRequest, SickNote, DoubleTicketRequest, LeaveChoiceOption } from '@/api/services/leaveApi';
+import type { LeaveRequest, SickNote, DoubleTicketRequest, LeaveChoiceOption, LeaveType } from '@/api/services/leaveApi';
+import { leaveBalanceApi } from '@/api/services/leaveApi';
+import LeaveBalances from './LeaveBalances';
 
 const fallbackLeaveTypeOptions: LeaveChoiceOption[] = [
   { label: 'Annual', value: 'ANNUAL' },
@@ -107,6 +110,20 @@ export default function LeaveDashboard() {
   const [selectedSick, setSelectedSick] = useState<any>(null);
   const [selectedDoubleTicket, setSelectedDoubleTicket] = useState<any>(null);
   const [leaveForm] = Form.useForm();
+  const previewEmployee = Form.useWatch('employee', leaveForm);
+  const previewType = Form.useWatch('leave_type', leaveForm) as LeaveType | undefined;
+  const previewStart = Form.useWatch('start_date', leaveForm) as Dayjs | undefined;
+  const previewEnd = Form.useWatch('end_date', leaveForm) as Dayjs | undefined;
+  const previewReady = !!(leaveModalOpen && previewEmployee && previewType && previewStart && previewEnd && !previewEnd.isBefore(previewStart));
+  const { data: leavePreview } = useQuery({
+    queryKey: ['leavePreview', previewEmployee, previewType, dateToStr(previewStart), dateToStr(previewEnd)],
+    queryFn: () => leaveBalanceApi.previewWorkingDays({
+      employee: Number(previewEmployee), leave_type: previewType as LeaveType,
+      start_date: dateToStr(previewStart) as string, end_date: dateToStr(previewEnd) as string,
+    }),
+    enabled: previewReady,
+    retry: false,
+  });
   const [sickForm] = Form.useForm();
   const [doubleTicketForm] = Form.useForm();
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -147,7 +164,7 @@ export default function LeaveDashboard() {
           <Button size="small" icon={<EyeOutlined />} onClick={() => { setSelectedLeave(r); setViewLeaveOpen(true); }} />
           <Button size="small" icon={<EditOutlined />} onClick={() => { setSelectedLeave(r); setViewLeaveOpen(true); }} />
           <Button size="small" icon={<DeleteOutlined />} danger onClick={() => { Modal.confirm({ title: 'Delete Leave Request', content: 'Are you sure you want to delete this leave request?', okText: 'Delete', okType: 'danger', onOk: () => deleteLeave.mutate(r.id) }); }} />
-          <Button size="small" onClick={() => approveLeave.mutate(r.id)} disabled={r.status !== 'PENDING'}>Approve</Button>
+          <Button size="small" onClick={() => approveLeave.mutate(r.id, { onError: (err: any) => message.error(err?.response?.data?.error || 'Could not approve leave') })} disabled={r.status !== 'PENDING'}>Approve</Button>
           <Button size="small" danger onClick={() => rejectLeave.mutate(r.id)} disabled={r.status !== 'PENDING'}>Reject</Button>
         </Space>
       )
@@ -262,8 +279,9 @@ export default function LeaveDashboard() {
       setLeaveModalOpen(false);
       leaveForm.resetFields();
       setUploadFile(null);
-    } catch (err) {
-      message.error('Failed to submit leave request');
+    } catch (err: any) {
+      const detail = err?.response?.data;
+      message.error(detail?.non_field_errors?.[0] || detail?.error || 'Failed to submit leave request');
     }
   };
 
@@ -430,6 +448,8 @@ export default function LeaveDashboard() {
         </Col>
       </Row>
 
+      <LeaveBalances />
+
       <Row gutter={16}>
         <Col xs={24} lg={14}>
           <Card
@@ -521,6 +541,23 @@ export default function LeaveDashboard() {
           <Form.Item name="end_date" label="End Date" rules={[{ required: true }]}>
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
+          {previewReady && leavePreview && (
+            <Descriptions size="small" column={1} bordered style={{ marginBottom: 16 }}>
+              <Descriptions.Item label={leavePreview.counts_working_days ? 'Working days' : 'Days'}>
+                {leavePreview.days}{leavePreview.counts_working_days ? ' (weekends and public holidays excluded)' : ''}
+              </Descriptions.Item>
+              {leavePreview.available != null && (
+                <Descriptions.Item label="Available now">{Number(leavePreview.available).toFixed(2)} days</Descriptions.Item>
+              )}
+              {leavePreview.available_after != null && (
+                <Descriptions.Item label="Balance after this leave">
+                  <span style={{ color: Number(leavePreview.available_after) < 0 ? '#cf1322' : undefined }}>
+                    {Number(leavePreview.available_after).toFixed(2)} days
+                  </span>
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+          )}
           <Form.Item name="reason" label="Reason">
             <Input.TextArea rows={3} placeholder="Optional details" />
           </Form.Item>

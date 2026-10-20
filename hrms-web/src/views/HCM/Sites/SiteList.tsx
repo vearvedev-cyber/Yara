@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import {
-  Button, Table, Tag, Modal, Form, Input, DatePicker, Select,
-  Space, message, Popconfirm, Badge,
+  Button,
+  Table,
+  Tag,
+  Form,
+  Input,
+  DatePicker,
+  Select,
+  Space,
+  message,
+  Popconfirm,
+  Badge,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SettingOutlined,
 } from '@ant-design/icons';

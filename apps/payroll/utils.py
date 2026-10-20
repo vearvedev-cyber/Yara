@@ -69,11 +69,28 @@ def get_paye_tax_bands(workspace=None):
     ]
 
 
+def _paye_on(chargeable_income, tax_bands):
+    """Progressive PAYE on a monthly chargeable income."""
+    paye_tax = 0
+    prev_max = 0
+    for max_amount, rate in tax_bands:
+        if chargeable_income <= prev_max:
+            break
+        if max_amount == float('inf'):
+            taxable = chargeable_income - prev_max
+        else:
+            taxable = min(chargeable_income - prev_max, max_amount - prev_max)
+        paye_tax += taxable * rate
+        prev_max = max_amount
+    return paye_tax
+
+
 def calculate_zambian_payroll(
     gross_salary: float | Decimal,
     unpaid_leave_deduction: float | Decimal = 0.0,
     custom_deductions: dict[str, float | Decimal] | None = None,
     workspace=None,
+    paye_gross_up: bool = False,
 ) -> dict[str, Any]:
     """
     Calculate Zambian payroll with statutory deductions
@@ -81,9 +98,13 @@ def calculate_zambian_payroll(
     
     Args:
         gross_salary: Employee's gross monthly salary
-        unpaid_leave_deduction: Deduction amount for unpaid leave/absenteeism
-        custom_deductions: Dict of custom deduction amounts {name: amount}
+        unpaid_leave_deduction: Pay not earned (unpaid leave + absenteeism). It is taken off
+            before NAPSA, PAYE and NHIMA, because tax is charged on actual earnings.
+        custom_deductions: Dict of custom deduction amounts {name: amount} (after tax)
         workspace: Workspace object (optional, for workspace-specific settings)
+        paye_gross_up: True when the employer pays the employee's PAYE (free-of-tax pay).
+            The tax paid for the employee is itself a taxable benefit, so PAYE is solved
+            for: PAYE = tax on (chargeable income + PAYE). Returned as `paye_gross_up`.
     
     Returns:
         Dict with breakdown of all calculations
@@ -109,18 +130,18 @@ def calculate_zambian_payroll(
     chargeable_income = adjusted_gross - employee_napsa
     
     # --- 4. Calculate PAYE (progressive tax bands) ---
-    paye_tax = 0
-    remaining_income = chargeable_income
-    prev_max = 0
-    for max_amount, rate in TAX_BANDS:
-        if remaining_income <= prev_max:
-            break
-        if max_amount == float('inf'):
-            taxable = remaining_income - prev_max
-        else:
-            taxable = min(remaining_income - prev_max, max_amount - prev_max)
-        paye_tax += taxable * rate
-        prev_max = max_amount
+    paye_tax = _paye_on(chargeable_income, TAX_BANDS)
+    gross_up = 0
+    if paye_gross_up:
+        # Fixed point: the benefit equals the tax on (income + benefit). Converges because
+        # the top marginal rate is below 100%.
+        for _ in range(100):
+            next_tax = _paye_on(chargeable_income + paye_tax, TAX_BANDS)
+            if abs(next_tax - paye_tax) < 0.001:
+                paye_tax = next_tax
+                break
+            paye_tax = next_tax
+        gross_up = paye_tax
     
     # --- 5. Calculate NHIMA (rate of adjusted gross) ---
     employee_nhima = adjusted_gross * NHIMA_RATE
@@ -150,7 +171,8 @@ def calculate_zambian_payroll(
             'total_statutory': round(total_statutory_deductions, 2),
             'total': round(total_deductions, 2),
         },
-        'chargeable_income': round(chargeable_income, 2),
+        'chargeable_income': round(chargeable_income + gross_up, 2),
+        'paye_gross_up': round(gross_up, 2),
         'net_pay': round(net_pay, 2),
     }
 

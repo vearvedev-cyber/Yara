@@ -433,7 +433,16 @@ class PayslipViewSet(viewsets.ModelViewSet):
 
         payroll_employee_ids = payroll_entries_qs.values_list('employee_id', flat=True).distinct()
         employees = Employee.objects.filter(id__in=payroll_employee_ids)
-        
+
+        # Employees who leave on or before the end of this month are paid their final
+        # (part) month through the final settlement, not a full-month payslip.
+        from calendar import monthrange
+        from datetime import date as _date
+        period_last_day = _date(int(year), int(month), monthrange(int(year), int(month))[1])
+        leavers = employees.filter(termination__termination_date__lte=period_last_day)
+        skipped_terminated = leavers.count()
+        employees = employees.exclude(pk__in=leavers.values('pk'))
+
         created_payslips = []
         errors = []
         skipped_existing = 0
@@ -613,6 +622,7 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 'skipped_existing': skipped_existing,
                 'skipped_no_salary': skipped_no_salary,
                 'skipped_other': skipped_other,
+                'skipped_terminated': skipped_terminated,
             },
             'payslips': serializer.data
         }, status=status.HTTP_201_CREATED)
@@ -643,13 +653,18 @@ class PayslipViewSet(viewsets.ModelViewSet):
         if not year or not month:
             return Response({'error': 'year and month are required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Never run across workspaces: without a selected workspace this would change
+        # every workspace's payslips for the month.
+        workspace = getattr(request, 'workspace', None)
+        if workspace is None:
+            return Response({'error': 'Select a workspace first'}, status=status.HTTP_400_BAD_REQUEST)
+
         payslips = Payslip.objects.filter(
             period__year=year,
             period__month=month,
             is_active=True,
+            employee__workspace=workspace,
         ).select_related('employee', 'employee__workspace')
-        if hasattr(request, 'workspace') and request.workspace:
-            payslips = payslips.filter(employee__workspace=request.workspace)
 
         updated = 0
         for payslip in payslips:

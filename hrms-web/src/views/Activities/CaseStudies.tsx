@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MobileTable from '../../components/MobileTable';
-import { Tag, Space, Button, Modal, Form, Input, Select, message, Drawer, Collapse, Badge, Upload, Card, Row, Col } from 'antd';
+import { Tag, Space, Button, Form, Input, Select, message, Collapse, Badge, Upload, Card, Row, Col } from 'antd';
+import { Drawer, Modal } from '@/components/overlays';
 import { EyeOutlined, PlusOutlined, FileAddOutlined, UploadOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';

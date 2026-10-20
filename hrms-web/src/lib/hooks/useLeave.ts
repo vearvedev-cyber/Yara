@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { leaveApi } from '@/api/services/leaveApi';
+import { leaveApi, leaveBalanceApi } from '@/api/services/leaveApi';
+import type { LeavePolicy, LeaveType } from '@/api/services/leaveApi';
 
 export const useLeaveRequests = () => {
   const workspaceId = localStorage.getItem('workspaceId');
@@ -27,6 +28,7 @@ export const useCreateLeaveRequest = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaveRequests', workspaceId] });
       qc.invalidateQueries({ queryKey: ['leaveSummary', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
     },
   });
 };
@@ -39,6 +41,7 @@ export const useApproveLeave = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaveRequests', workspaceId] });
       qc.invalidateQueries({ queryKey: ['leaveSummary', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
     },
   });
 };
@@ -51,6 +54,7 @@ export const useRejectLeave = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaveRequests', workspaceId] });
       qc.invalidateQueries({ queryKey: ['leaveSummary', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
     },
   });
 };
@@ -63,6 +67,7 @@ export const useCancelLeave = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaveRequests', workspaceId] });
       qc.invalidateQueries({ queryKey: ['leaveSummary', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
     },
   });
 };
@@ -75,6 +80,7 @@ export const useDeleteLeaveRequest = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['leaveRequests', workspaceId] });
       qc.invalidateQueries({ queryKey: ['leaveSummary', workspaceId] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
     },
   });
 };
@@ -211,3 +217,78 @@ export const useDoubleTicketSummary = (employee?: number) => {
     enabled: !!workspaceId,
   });
 };
+
+// ---------------------------------------------------------------------------
+// Leave balances, policy and public holidays
+// ---------------------------------------------------------------------------
+
+export const useLeaveBalances = (params: { leave_type?: LeaveType; search?: string; include_terminated?: boolean } = {}) => {
+  const workspaceId = localStorage.getItem('workspaceId');
+  return useQuery({
+    queryKey: ['leaveBalances', workspaceId, params],
+    queryFn: () => leaveBalanceApi.getBalances(params),
+    enabled: !!workspaceId,
+  });
+};
+
+export const useLeaveBalanceDetail = (employeeId: number | null, leaveType: LeaveType = 'ANNUAL') => {
+  const workspaceId = localStorage.getItem('workspaceId');
+  return useQuery({
+    queryKey: ['leaveBalances', workspaceId, 'detail', employeeId, leaveType],
+    queryFn: () => leaveBalanceApi.getBalanceDetail(employeeId as number, leaveType),
+    enabled: !!workspaceId && !!employeeId,
+  });
+};
+
+export const useAdjustLeaveBalance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ employeeId, ...data }: { employeeId: number; leave_type: LeaveType; days: number; note: string; date?: string }) =>
+      leaveBalanceApi.adjustBalance(employeeId, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leaveBalances'] }),
+  });
+};
+
+export const useLeavePolicy = (leaveType: LeaveType = 'ANNUAL') => {
+  const workspaceId = localStorage.getItem('workspaceId');
+  return useQuery({
+    queryKey: ['leavePolicy', workspaceId, leaveType],
+    queryFn: () => leaveBalanceApi.getEffectivePolicy(leaveType),
+    enabled: !!workspaceId,
+  });
+};
+
+export const useSaveLeavePolicy = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (policy: LeavePolicy) => leaveBalanceApi.savePolicy(policy),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['leavePolicy'] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
+    },
+  });
+};
+
+export const usePublicHolidays = (year: number) => {
+  const workspaceId = localStorage.getItem('workspaceId');
+  return useQuery({
+    queryKey: ['publicHolidays', workspaceId, year],
+    queryFn: () => leaveBalanceApi.getHolidays(year),
+    enabled: !!workspaceId,
+  });
+};
+
+const useHolidayMutation = <T, R>(fn: (arg: T) => Promise<R>) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['publicHolidays'] });
+      qc.invalidateQueries({ queryKey: ['leaveBalances'] });
+    },
+  });
+};
+
+export const useAddHoliday = () => useHolidayMutation((data: { date: string; name: string }) => leaveBalanceApi.addHoliday(data));
+export const useDeleteHoliday = () => useHolidayMutation((id: number) => leaveBalanceApi.deleteHoliday(id));
+export const useSeedHolidays = () => useHolidayMutation((year: number) => leaveBalanceApi.seedHolidays(year));

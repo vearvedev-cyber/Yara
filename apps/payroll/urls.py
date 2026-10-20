@@ -12,6 +12,8 @@ from .views import (
     PayeTaxBandViewSet,
     ComplianceDocumentViewSet,
 )
+from .gratuity_views import GratuityViewSet
+from .settlement_views import FinalSettlementViewSet, PriorRedundancyPaymentViewSet
 
 app_name = 'payroll'
 
@@ -26,6 +28,9 @@ router.register(r'paye-returns', PAYEReturnViewSet, basename='paye-return')
 router.register(r'statutory-settings', WorkspaceStatutorySettingsViewSet, basename='statutory-settings')
 router.register(r'paye-tax-bands', PayeTaxBandViewSet, basename='paye-tax-band')
 router.register(r'compliance-documents', ComplianceDocumentViewSet, basename='compliance-document')
+router.register(r'gratuity', GratuityViewSet, basename='gratuity')
+router.register(r'settlements', FinalSettlementViewSet, basename='settlement')
+router.register(r'prior-redundancy', PriorRedundancyPaymentViewSet, basename='prior-redundancy')
 
 urlpatterns = [
     path('', include(router.urls)),

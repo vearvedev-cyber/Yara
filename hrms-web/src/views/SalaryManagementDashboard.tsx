@@ -1,4 +1,5 @@
-import { Card, Row, Col, Statistic, Space, Empty, Button, Modal, Form, Input, InputNumber, message, Select, Slider } from 'antd';
+import { Card, Row, Col, Statistic, Space, Empty, Button, Form, Input, InputNumber, message, Select, Slider } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../components/MobileTable';
 import MobileModal from '../components/MobileModal';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';

@@ -1,10 +1,15 @@
 /**
  * MobileModal — renders as a centred Modal on desktop,
  * a slide-up bottom-sheet Drawer on mobile portrait.
+ *
+ * When `onOk` is given and `footer` isn't, both layouts show Cancel and OK buttons
+ * (okText, cancelText, confirmLoading and okButtonProps are honoured). Pass
+ * `footer={null}` for no footer. The phone back button closes it.
  */
 import React from 'react';
-import { Modal, Drawer, Grid } from 'antd';
+import { Button, Grid, Space } from 'antd';
 import type { ModalProps } from 'antd';
+import { Drawer, Modal } from './overlays';
 
 interface MobileModalProps extends Omit<ModalProps, 'onCancel'> {
   open: boolean;
@@ -23,18 +28,39 @@ export default function MobileModal({
   footer,
   height = '85vh',
   width = 680,
+  onOk,
+  okText,
+  cancelText,
+  confirmLoading,
+  okButtonProps,
   ...rest
 }: MobileModalProps) {
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+  const useDefaultFooter = footer === undefined && !!onOk;
 
   if (isMobile) {
+    const buttons = useDefaultFooter ? (
+      <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+        <Button onClick={onClose}>{cancelText ?? 'Cancel'}</Button>
+        <Button
+          type="primary"
+          loading={!!confirmLoading}
+          {...okButtonProps}
+          onClick={(e) => onOk?.(e as React.MouseEvent<HTMLButtonElement>)}
+        >
+          {okText ?? 'OK'}
+        </Button>
+      </Space>
+    ) : footer;
+
     return (
       <Drawer
         open={open}
         onClose={onClose}
         placement="bottom"
         height={height}
+        destroyOnHidden
         styles={{
           body: {
             padding: '0 16px 16px',
@@ -68,28 +94,24 @@ export default function MobileModal({
             </div>
           </div>
         }
+        // The Drawer calls onClose when this icon is tapped; no extra onClick, or it fires twice
         closeIcon={
-          <button
-            type="button"
+          <span
             aria-label="Close"
-            onClick={onClose}
             style={{
-              background: 'transparent',
-              border: 'none',
               color: 'var(--text-dim)',
               fontSize: 18,
-              cursor: 'pointer',
               lineHeight: 1,
-              padding: 0,
+              padding: 4,
             }}
           >
             ✕
-          </button>
+          </span>
         }
         footer={
-          footer ? (
+          buttons ? (
             <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-              {footer}
+              {buttons}
             </div>
           ) : null
         }
@@ -103,8 +125,14 @@ export default function MobileModal({
     <Modal
       open={open}
       onCancel={onClose}
+      onOk={onOk}
+      okText={okText}
+      cancelText={cancelText}
+      confirmLoading={confirmLoading}
+      okButtonProps={okButtonProps}
       title={title}
-      footer={footer ?? null}
+      // undefined → antd's own Cancel/OK footer; otherwise what the caller passed (or none)
+      footer={useDefaultFooter ? undefined : (footer ?? null)}
       width={width}
       destroyOnClose
       {...rest}

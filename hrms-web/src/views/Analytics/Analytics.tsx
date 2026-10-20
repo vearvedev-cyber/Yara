@@ -1,4 +1,5 @@
-import { Tag, Button, Spin, Select, DatePicker, Row, Col, Modal } from 'antd';
+import { Tag, Button, Spin, Select, DatePicker, Row, Col } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';

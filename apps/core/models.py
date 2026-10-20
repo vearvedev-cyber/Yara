@@ -195,3 +195,30 @@ class WorkspaceAccessRequest(models.Model):
     
     def __str__(self):
         return f"{self.requesting_user.username} → {self.workspace.name} ({self.status})"
+
+
+class PublicHoliday(models.Model):
+    """
+    Public holidays, used to count working days (leave, statutory due dates).
+    workspace=NULL rows are national holidays shared by every workspace;
+    workspace rows add company-specific days off.
+    """
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, null=True, blank=True, related_name='public_holidays'
+    )
+    date = models.DateField(db_index=True)
+    name = models.CharField(max_length=100)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'date'], name='uniq_public_holiday_workspace_date'),
+            models.UniqueConstraint(
+                fields=['date'], condition=models.Q(workspace__isnull=True), name='uniq_public_holiday_national_date'
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.date} - {self.name}"

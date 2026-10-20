@@ -46,9 +46,16 @@ class LeaveRequest(models.Model):
         return f"{self.employee.full_name} {self.leave_type} ({self.status})"
 
     def recalc_days(self):
-        if self.start_date and self.end_date:
-            delta = (self.end_date - self.start_date).days + 1
-            self.days = max(delta, 1)
+        """Working days for leave types whose policy counts working days (annual leave by
+        default); calendar days for the rest (sick, maternity…)."""
+        if not (self.start_date and self.end_date):
+            return
+        from .balances import working_days_for_request
+
+        days = working_days_for_request(self)
+        if days is None:
+            days = max((self.end_date - self.start_date).days + 1, 1)
+        self.days = days
 
     def save(self, *args, **kwargs):  # pragma: no cover - logic is simple
         self.recalc_days()
@@ -235,3 +242,120 @@ class DoubleTicketRequest(models.Model):
             traceback.print_exc()
             return 0
 
+
+class LeavePolicy(models.Model):
+    """
+    Entitlement rules per workspace and leave type. Only leave types with a policy
+    accrue and have a balance. When a workspace has no ANNUAL policy row, the
+    defaults below apply (see balances.get_policy).
+    """
+    workspace = models.ForeignKey(
+        'core.Workspace', on_delete=models.CASCADE, related_name='leave_policies'
+    )
+    leave_type = models.CharField(max_length=20, choices=LeaveRequest.LeaveType.choices)
+    days_per_month = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('2.00'),
+        help_text="Days accrued per full month of service (2 = 24 days a year)"
+    )
+    carry_forward_cap = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True, default=Decimal('12.00'),
+        help_text="Maximum days kept at the end of a leave year; empty = no limit"
+    )
+    leave_year_start_month = models.PositiveSmallIntegerField(
+        default=1, help_text="Month the leave year starts (1 = January)"
+    )
+    count_working_days = models.BooleanField(
+        default=True, help_text="Count requests in working days (excluding rest days and public holidays)"
+    )
+    working_weekdays = models.CharField(
+        max_length=20, default='0,1,2,3,4',
+        help_text="Working weekdays, Monday=0 … Sunday=6 (default Monday–Friday)"
+    )
+    allow_negative_balance = models.BooleanField(
+        default=False, help_text="Allow approving leave beyond the available balance"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['workspace', 'leave_type'], name='uniq_leave_policy_type'),
+        ]
+        verbose_name_plural = "Leave Policies"
+
+    def __str__(self):
+        return f"{self.workspace} - {self.leave_type} ({self.days_per_month}/month)"
+
+    @property
+    def weekday_set(self) -> set[int]:
+        return {int(d) for d in self.working_weekdays.split(',') if d.strip().isdigit()}
+
+
+class LeaveLedgerEntry(models.Model):
+    """
+    Append-only record of every change to an employee's leave balance.
+    Balance = sum of `days`. Entries are never edited or deleted; corrections are new entries.
+    """
+    class Kind(models.TextChoices):
+        OPENING = 'OPENING', 'Opening balance'
+        ACCRUAL = 'ACCRUAL', 'Monthly accrual'
+        TAKEN = 'TAKEN', 'Leave taken'
+        ADJUSTMENT = 'ADJUSTMENT', 'Manual adjustment'
+        EXPIRY = 'EXPIRY', 'Carry-forward expiry'
+        PAID_OUT = 'PAID_OUT', 'Paid out'
+
+    workspace = models.ForeignKey(
+        'core.Workspace', on_delete=models.CASCADE, null=True, blank=True, related_name='+'
+    )
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='leave_ledger')
+    leave_type = models.CharField(max_length=20, choices=LeaveRequest.LeaveType.choices)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    date = models.DateField(help_text="Date the change takes effect")
+    period = models.DateField(
+        null=True, blank=True,
+        help_text="Month accrued (first day) for ACCRUAL; leave-year end for EXPIRY"
+    )
+    days = models.DecimalField(max_digits=7, decimal_places=2, help_text="Signed: + adds, - uses")
+    source_type = models.CharField(max_length=40, blank=True)   # 'leave_request', 'final_settlement'…
+    source_id = models.CharField(max_length=64, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['employee', 'leave_type', 'period'], condition=models.Q(kind='ACCRUAL'),
+                name='uniq_leave_accrual_month'
+            ),
+            models.UniqueConstraint(
+                fields=['employee', 'leave_type', 'period'], condition=models.Q(kind='EXPIRY'),
+                name='uniq_leave_expiry_year'
+            ),
+            models.UniqueConstraint(
+                fields=['employee', 'leave_type'], condition=models.Q(kind='OPENING'),
+                name='uniq_leave_opening'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['employee', 'leave_type', 'date']),
+            models.Index(fields=['workspace', 'leave_type']),
+            models.Index(fields=['source_type', 'source_id']),
+        ]
+        verbose_name_plural = "Leave Ledger Entries"
+
+    def __str__(self):
+        return f"{self.employee} {self.leave_type} {self.kind} {self.days:+} on {self.date}"
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None and not self._state.adding:
+            raise ValueError("Leave ledger entries can't be changed; add a correcting entry instead")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Leave ledger entries can't be deleted; add a correcting entry instead")

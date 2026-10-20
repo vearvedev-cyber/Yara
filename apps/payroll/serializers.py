@@ -254,7 +254,7 @@ class PayslipCreateSerializer(serializers.ModelSerializer):
             'lunch_allowance', 'other_allowances', 'overtime_payment', 'bonus',
             'double_ticket_payment',
             'unpaid_leave_days', 'unpaid_leave_deduction',
-            'absenteeism_days', 'absenteeism_deduction',
+            'absenteeism_days', 'absenteeism_deduction', 'paye_gross_up',
             'employer_borne_deductions',
             'notes', 'custom_deductions_data'
         ]

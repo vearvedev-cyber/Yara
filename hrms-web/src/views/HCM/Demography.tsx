@@ -3,7 +3,6 @@ import {
   Card,
   Table,
   Button,
-  Drawer,
   Descriptions,
   Space,
   Form,
@@ -18,13 +17,13 @@ import {
   Skeleton,
   Row,
   Col,
-  Modal,
   Upload,
   Statistic,
   Avatar,
   Popconfirm,
   Divider,
 } from 'antd';
+import { Drawer, Modal } from '@/components/overlays';
 import {
   UploadOutlined,
   UserOutlined,

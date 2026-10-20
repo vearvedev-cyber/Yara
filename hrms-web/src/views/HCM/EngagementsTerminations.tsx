@@ -1,4 +1,7 @@
-import { Card, Row, Col, Space, Input, Select, DatePicker, Button } from 'antd';
+import { Card, Row, Col, Space, Input, Select, DatePicker, Button, Tag, message } from 'antd';
+import { Link, useNavigate } from 'react-router-dom';
+import { settlementApi, settlementStatusColor } from '@/api/services/settlementApi';
+import { apiErrorMessage } from '@/api/services/leaveApi';
 import MobileTable from '../../components/MobileTable';
 import { useMemo, useState } from 'react';
 import { useEffect } from 'react';
@@ -124,6 +127,29 @@ export default function EngagementsTerminations() {
     });
   }, [engagements, appliedFilters, employeeMap]);
 
+  const navigate = useNavigate();
+  const { data: settlements = [] } = useQuery({
+    queryKey: ['settlements', workspaceId, 'exits'],
+    queryFn: () => settlementApi.list({ kind: 'EXIT' }),
+  });
+  const settlementByEmployee = useMemo(() => {
+    const map = new Map<number, (typeof settlements)[number]>();
+    settlements.filter((s) => s.status !== 'CANCELLED').forEach((s) => map.set(s.employee, s));
+    return map;
+  }, [settlements]);
+  const [preparing, setPreparing] = useState<number | null>(null);
+  const prepareSettlement = async (employee: number) => {
+    setPreparing(employee);
+    try {
+      const created = await settlementApi.create({ employee, kind: 'EXIT' });
+      navigate(`/payroll/settlements/${created.id}`);
+    } catch (err) {
+      message.error(apiErrorMessage(err, 'Could not prepare the settlement'));
+    } finally {
+      setPreparing(null);
+    }
+  };
+
   const terminationRows = useMemo(() => {
     return applyFilters(terminations || [], 'termination_date').map((item: any, idx: number) => {
       return {
@@ -137,6 +163,7 @@ export default function EngagementsTerminations() {
         dob: item.date_of_birth || '-',
         department: item.department_name || '-',
         payroll: item.payroll_final ? 'Yes' : 'No',
+        employee: item.employee,
         engagement_date: item.engagement_date || '-',
         termination_date: item.termination_date || '-',
         termination_reason: item.termination_reason_name || '-',
@@ -171,6 +198,25 @@ export default function EngagementsTerminations() {
     { title: 'Engagement Date', dataIndex: 'engagement_date' },
     { title: 'Termination Date', dataIndex: 'termination_date' },
     { title: 'Termination Reason', dataIndex: 'termination_reason' },
+    {
+      title: 'Final Settlement',
+      dataIndex: 'employee',
+      render: (employee: number) => {
+        const existing = settlementByEmployee.get(employee);
+        if (existing) {
+          return (
+            <Link to={`/payroll/settlements/${existing.id}`}>
+              <Tag color={settlementStatusColor[existing.status]}>{existing.status}</Tag> Open
+            </Link>
+          );
+        }
+        return (
+          <Button size="small" type="primary" loading={preparing === employee} onClick={() => prepareSettlement(employee)}>
+            Prepare
+          </Button>
+        );
+      },
+    },
   ];
 
   return (

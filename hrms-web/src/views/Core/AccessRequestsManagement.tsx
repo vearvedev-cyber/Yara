@@ -5,7 +5,6 @@ import {
   Card,
   Button,
   Space,
-  Modal,
   Form,
   Select,
   Input,
@@ -17,6 +16,7 @@ import {
   Row,
   Col,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,

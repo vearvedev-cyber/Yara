@@ -1,4 +1,5 @@
-import { Modal, Form, Input, Select, DatePicker, message, Upload, Avatar, Row, Col } from 'antd';
+import { Form, Input, Select, DatePicker, message, Upload, Avatar, Row, Col } from 'antd';
+import { Modal } from '@/components/overlays';
 import { UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useState, useMemo } from 'react';

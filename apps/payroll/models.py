@@ -5,6 +5,7 @@ Reflects Human Management Payroll sheet: components and per-employee entries.
 
 import logging
 
+from django.core.validators import MinValueValidator
 from django.db import models
 from apps.hcm.models import Employee
 from decimal import Decimal, ROUND_HALF_UP
@@ -203,6 +204,10 @@ class Payslip(models.Model):
     )
 
     # Versioning
+    paye_gross_up = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal('0'),
+        help_text="Employer-borne pay: PAYE paid for the employee, added to taxable pay (free-of-tax gross-up)"
+    )
     version = models.PositiveIntegerField(default=1, help_text="Incremented when payslip is recalculated")
     is_active = models.BooleanField(default=True, help_text="Only the latest version is active")
     original_payslip = models.ForeignKey(
@@ -422,10 +427,9 @@ class Payslip(models.Model):
                 calculate_unpaid_leave_deduction(float(self.gross_salary), float(absenteeism_days))
             )).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # Collect all custom deductions
+        # Collect all custom deductions (taken after tax). Absenteeism isn't one of them:
+        # like unpaid leave it is pay not earned, so it comes off before NAPSA/PAYE/NHIMA.
         custom_deductions: dict[str, float | Decimal] = {}
-        if self.absenteeism_deduction > 0:
-            custom_deductions['Absenteeism'] = float(self.absenteeism_deduction)
 
         related_custom_deductions = getattr(self, 'custom_deductions', None)
         if related_custom_deductions is not None:
@@ -436,11 +440,13 @@ class Payslip(models.Model):
         # Calculate using Zambian payroll formulas with workspace-specific settings
         # Get workspace from employee's workspace field
         workspace = self.employee.workspace
+        pay_not_earned = float(self.unpaid_leave_deduction) + float(self.absenteeism_deduction)
         result = calculate_zambian_payroll(
             float(self.gross_salary),
-            float(self.unpaid_leave_deduction),
+            pay_not_earned,
             custom_deductions,
-            workspace=workspace
+            workspace=workspace,
+            paye_gross_up=bool(self.employer_borne_deductions),
         )
         
         # Update fields
@@ -450,17 +456,26 @@ class Payslip(models.Model):
         self.nhima_employee = result['deductions']['nhima_employee']
         self.nhima_employer = result['deductions']['nhima_employer']
         self.total_custom_deductions = result['deductions']['total_custom']
+        self.paye_gross_up = result['paye_gross_up']
 
         if self.employer_borne_deductions:
             # Employer absorbs statutory deductions — employee receives full gross
-            # Deductions are still recorded for ZRA remittance but don't reduce take-home
-            self.total_deductions = result['deductions']['total_custom'] + float(self.unpaid_leave_deduction)
+            # Deductions are still recorded for ZRA remittance but don't reduce take-home.
+            # PAYE was grossed up (the tax paid for the employee is taxable too).
+            self.total_deductions = result['deductions']['total_custom'] + pay_not_earned
             self.net_salary = float(self.gross_salary) - self.total_deductions
         else:
             self.total_deductions = result['deductions']['total']
             self.net_salary = result['net_pay']
 
         self.is_processed = True
+
+    @property
+    def taxable_pay(self) -> Decimal:
+        """Emoluments PAYE is charged on: gross less pay not earned (unpaid leave,
+        absenteeism) plus any free-of-tax gross-up."""
+        return (Decimal(str(self.gross_salary)) - Decimal(str(self.unpaid_leave_deduction or 0))
+                - Decimal(str(self.absenteeism_deduction or 0)) + Decimal(str(self.paye_gross_up or 0)))
 
 
 class PayslipDeduction(models.Model):
@@ -773,16 +788,17 @@ class PAYEReturn(models.Model):
         self.total_employees = payslips.count()
         
         # Aggregate amounts
+        # Gross pay is taxable pay: gross less unpaid leave and absenteeism, plus any
+        # free-of-tax gross-up (the same figure PAYE is charged on).
         aggregates = payslips.aggregate(
-            gross_sum=Sum('gross_salary'),
             paye_sum=Sum('paye_tax'),
             napsa_sum=Sum('napsa_employee'),
         )
         
-        self.total_gross_pay = aggregates['gross_sum'] or Decimal('0')
+        self.total_gross_pay = sum((p.taxable_pay for p in payslips), Decimal('0'))
         self.total_tax_payable = aggregates['paye_sum'] or Decimal('0')
         
-        # Chargeable amount = Gross - NAPSA employee contribution (tax-exempt)
+        # Chargeable amount = taxable pay - NAPSA employee contribution (tax-exempt)
         napsa_total = aggregates['napsa_sum'] or Decimal('0')
         self.total_chargeable_amount = self.total_gross_pay - napsa_total
         
@@ -815,8 +831,8 @@ class PAYEReturn(models.Model):
         for payslip in payslips:
             employee = payslip.employee
 
-            # Chargeable amount = Gross - NAPSA
-            chargeable = payslip.gross_salary - payslip.napsa_employee
+            # Chargeable amount = taxable pay - NAPSA
+            chargeable = payslip.taxable_pay - payslip.napsa_employee
 
             # Tax credit (basic personal relief)
             tax_credit = Decimal('30600')
@@ -843,7 +859,7 @@ class PAYEReturn(models.Model):
                 'full_name': employee.full_name,
                 'employee_nature': employee_nature,
                 'contractor_type': contractor_type,
-                'gross_pay': payslip.gross_salary,
+                'gross_pay': payslip.taxable_pay,
                 'chargeable_amount': chargeable,
                 'tax_credit': tax_credit,
                 'tax_payable': tax_payable,
@@ -855,3 +871,225 @@ class PAYEReturn(models.Model):
         rows.sort(key=lambda x: x['tpin'] or x['full_name'])
         
         return rows
+
+
+class GratuityPolicy(models.Model):
+    """
+    Gratuity rules per workspace (Employment Code Act No. 3 of 2019).
+
+    - Long-term contracts (longer than `long_term_months`, i.e. more than 12 months):
+      gratuity of at least 25% of the basic pay earned (s73).
+    - Shorter fixed-duration contracts: severance pay calculated the same way, at least
+      25% of basic pay (s54).
+    - A contract that ends early, including by dismissal, is paid pro rata to the period
+      actually worked (s51(1), s73(2)). Accrued gratuity is never forfeited.
+
+    The rate can be raised, never lowered below 25%.
+    """
+    workspace = models.OneToOneField('core.Workspace', on_delete=models.CASCADE, related_name='gratuity_policy')
+    rate_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('25.00'),
+        validators=[MinValueValidator(Decimal('25.00'))],
+        help_text="Percentage of basic pay earned during the contract (statutory minimum 25%)"
+    )
+    eligible_contract_types = models.CharField(
+        max_length=200, default='FIXED_TERM,SHORT_TERM',
+        help_text="Comma-separated ContractType names of fixed-duration contracts"
+    )
+    long_term_months = models.PositiveSmallIntegerField(
+        default=12, help_text="Contracts longer than this many months are long-term (gratuity, s73); "
+                              "shorter ones get short-term severance pay (s54)"
+    )
+    estimate_missing_months = models.BooleanField(
+        default=True, help_text="Use the contract's basic salary for months with no payslip in the system"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Gratuity Policies"
+
+    def __str__(self):
+        return f"Gratuity {self.rate_percent}% - {self.workspace}"
+
+    @property
+    def contract_type_names(self) -> set[str]:
+        return {t.strip() for t in self.eligible_contract_types.split(',') if t.strip()}
+
+
+class GratuityPayment(models.Model):
+    """
+    Gratuity actually paid against a contract (by a final settlement or a contract-end payout).
+    Outstanding gratuity = calculated gratuity − payments. Never edited or deleted.
+    """
+    workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+    contract = models.ForeignKey('hcm.Contract', on_delete=models.PROTECT, related_name='gratuity_payments')
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name='gratuity_payments')
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    paid_on = models.DateField()
+    covers_to = models.DateField(help_text="Last day of service this payment covers")
+    source_type = models.CharField(max_length=40, blank=True)   # 'final_settlement'
+    source_id = models.CharField(max_length=64, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-paid_on', '-id']
+        indexes = [models.Index(fields=['contract', 'paid_on'])]
+
+    def __str__(self):
+        return f"Gratuity K{self.amount} - {self.employee} ({self.paid_on})"
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None and not self._state.adding:
+            raise ValueError("Gratuity payments can't be changed; record a correcting entry instead")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Gratuity payments can't be deleted")
+
+
+class SettlementPolicy(models.Model):
+    """Per-workspace rules for final settlements. Missing row = defaults (see settlement.py)."""
+    workspace = models.OneToOneField('core.Workspace', on_delete=models.CASCADE, related_name='settlement_policy')
+    leave_pay_divisor = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('26'),
+        help_text="Daily rate for leave payout = monthly basic ÷ this number"
+    )
+    redundancy_months_per_year = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('2.00'),
+        help_text="Redundancy severance: months of basic pay per year served"
+    )
+    redundancy_tax_free_limit = models.DecimalField(
+        max_digits=15, decimal_places=2, default=Decimal('2000000.00'),
+        help_text="Redundancy pay free of PAYE over the employee's lifetime; the excess is taxed"
+    )
+    tax_treatment = models.JSONField(
+        default=dict, blank=True,
+        help_text="Line kind → {paye, napsa, nhima} booleans; overrides the built-in defaults"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Settlement Policies"
+
+
+class FinalSettlement(models.Model):
+    """
+    Money owed to (or by) an employee when they leave (EXIT) or when a fixed-duration
+    contract ends and is renewed (CONTRACT_END, gratuity only).
+    DRAFT can be recalculated and edited; APPROVED and PAID are locked.
+    """
+    class Kind(models.TextChoices):
+        EXIT = 'EXIT', 'Employee exit'
+        CONTRACT_END = 'CONTRACT_END', 'Contract end (renewed)'
+
+    class Status(models.TextChoices):
+        DRAFT = 'DRAFT', 'Draft'
+        APPROVED = 'APPROVED', 'Approved'
+        PAID = 'PAID', 'Paid'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    workspace = models.ForeignKey('core.Workspace', on_delete=models.PROTECT, null=True, blank=True, related_name='+')
+    employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name='final_settlements')
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.EXIT)
+    termination = models.ForeignKey('hcm.Termination', on_delete=models.PROTECT, null=True, blank=True,
+                                    related_name='final_settlements')
+    contract = models.ForeignKey('hcm.Contract', on_delete=models.PROTECT, null=True, blank=True,
+                                 related_name='final_settlements')
+    last_working_day = models.DateField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    payee_name = models.CharField(max_length=200, blank=True,
+                                  help_text="Who receives the money if not the employee (e.g. estate or beneficiary)")
+    notes = models.TextField(blank=True)
+
+    total_earnings = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    total_deductions = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    net_payable = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0'))
+    calculated_at = models.DateTimeField(null=True, blank=True)
+    calculation_notes = models.JSONField(default=list, blank=True)   # warnings shown to the preparer
+
+    prepared_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    approved_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    paid_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            # One live exit settlement per employee, one live contract-end payout per contract
+            models.UniqueConstraint(
+                fields=['employee'], condition=models.Q(kind='EXIT') & ~models.Q(status='CANCELLED'),
+                name='uniq_live_exit_settlement'
+            ),
+            models.UniqueConstraint(
+                fields=['contract'], condition=models.Q(kind='CONTRACT_END') & ~models.Q(status='CANCELLED'),
+                name='uniq_live_contract_end_settlement'
+            ),
+        ]
+        indexes = [models.Index(fields=['workspace', 'status'])]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} - {self.employee} ({self.status})"
+
+    @property
+    def is_locked(self) -> bool:
+        return self.status in (self.Status.APPROVED, self.Status.PAID)
+
+
+class SettlementLine(models.Model):
+    class Category(models.TextChoices):
+        EARNING = 'EARNING', 'Earning'
+        DEDUCTION = 'DEDUCTION', 'Deduction'
+        EMPLOYER = 'EMPLOYER', 'Employer contribution'   # shown for information; doesn't change net pay
+
+    settlement = models.ForeignKey(FinalSettlement, on_delete=models.CASCADE, related_name='lines')
+    line_no = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=40)          # 'final_salary', 'leave_pay', 'gratuity', 'paye', 'loan_recovery'…
+    category = models.CharField(max_length=20, choices=Category.choices)
+    description = models.CharField(max_length=255)
+    basis = models.CharField(max_length=255, blank=True)   # how it was worked out, e.g. "14.50 days × K400.00"
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    is_manual = models.BooleanField(default=False)
+    reason = models.CharField(max_length=255, blank=True)  # required for manual lines
+    paye = models.BooleanField(default=False)       # earning counts towards PAYE
+    napsa = models.BooleanField(default=False)      # earning counts towards NAPSA
+    nhima = models.BooleanField(default=False)      # earning counts towards NHIMA
+    data = models.JSONField(default=dict, blank=True)   # figures behind the line (days, rate, contract…)
+
+    class Meta:
+        ordering = ['line_no']
+        constraints = [models.UniqueConstraint(fields=['settlement', 'line_no'], name='uniq_settlement_line_no')]
+
+    def __str__(self):
+        return f"{self.description}: {self.amount}"
+
+
+class PriorRedundancyPayment(models.Model):
+    """
+    Redundancy pay an employee received before (from this employer before the system
+    went live, or from another employer). Counts against the lifetime PAYE-free
+    redundancy limit in final settlements.
+    """
+    workspace = models.ForeignKey('core.Workspace', on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='prior_redundancy_payments')
+    amount = models.DecimalField(max_digits=15, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    paid_on = models.DateField()
+    employer_name = models.CharField(max_length=200, help_text="Who paid it")
+    note = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-paid_on']
+
+    def __str__(self):
+        return f"{self.employee} - K{self.amount} redundancy ({self.paid_on}, {self.employer_name})"

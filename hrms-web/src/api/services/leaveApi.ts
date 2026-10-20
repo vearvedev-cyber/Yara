@@ -177,3 +177,144 @@ export const leaveApi = {
     return res.data?.results || res.data;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Leave balances, policy and public holidays
+// Day amounts come back as strings with 2 decimals ("12.50").
+// ---------------------------------------------------------------------------
+
+/** First readable message from a DRF error response. */
+export const apiErrorMessage = (err: unknown, fallback: string): string => {
+  const data = (err as { response?: { data?: unknown } })?.response?.data;
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+  if (typeof data === 'object') {
+    const record = data as Record<string, unknown>;
+    const first = record.error ?? record.detail ?? Object.values(record)[0];
+    if (Array.isArray(first)) return String(first[0]);
+    if (first != null) return String(first);
+  }
+  return fallback;
+};
+
+export interface LeavePolicy {
+  id?: number;
+  leave_type: LeaveType;
+  days_per_month: string;
+  carry_forward_cap: string | null;
+  leave_year_start_month: number;
+  count_working_days: boolean;
+  working_weekdays: string;
+  allow_negative_balance: boolean;
+  is_default?: boolean;
+  has_balance?: boolean;
+}
+
+export interface LeaveBalanceRow {
+  employee: number;
+  employee_name: string;
+  employee_code: string;
+  department: string;
+  employment_status: string;
+  leave_type: LeaveType;
+  opening: string;
+  accrued: string;
+  taken: string;
+  adjustments: string;
+  expired: string;
+  paid_out: string;
+  balance: string;
+  accruing_this_month: string;
+  available: string;
+}
+
+export interface LeaveLedgerEntry {
+  id: number;
+  leave_type: LeaveType;
+  kind: 'OPENING' | 'ACCRUAL' | 'TAKEN' | 'ADJUSTMENT' | 'EXPIRY' | 'PAID_OUT';
+  kind_display: string;
+  date: string;
+  period: string | null;
+  days: string;
+  source_type: string;
+  source_id: string;
+  note: string;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface LeaveBalanceDetail extends Omit<LeaveBalanceRow, 'department' | 'employment_status'> {
+  hire_date: string;
+  days_per_month: string;
+  carry_forward_cap: string | null;
+  entries: LeaveLedgerEntry[];
+}
+
+export interface WorkingDaysPreview {
+  days: number;
+  counts_working_days: boolean;
+  available: string | null;
+  available_after: string | null;
+}
+
+export interface PublicHoliday {
+  id: number;
+  date: string;
+  name: string;
+  is_national: boolean;
+}
+
+export const leaveBalanceApi = {
+  getBalances: async (params: { leave_type?: LeaveType; search?: string; include_terminated?: boolean } = {}) => {
+    const res = await http.get('/api/v1/leave/balances/', {
+      params: { ...params, include_terminated: params.include_terminated ? 1 : undefined },
+    });
+    return res.data as { results: LeaveBalanceRow[]; policy: LeavePolicy | null };
+  },
+  getBalanceDetail: async (employeeId: number, leaveType: LeaveType = 'ANNUAL'): Promise<LeaveBalanceDetail> => {
+    const res = await http.get(`/api/v1/leave/balances/${employeeId}/`, { params: { leave_type: leaveType } });
+    return res.data;
+  },
+  adjustBalance: async (employeeId: number, data: { leave_type: LeaveType; days: number; note: string; date?: string }) => {
+    const res = await http.post(`/api/v1/leave/balances/${employeeId}/adjust/`, data);
+    return res.data as LeaveLedgerEntry;
+  },
+  previewWorkingDays: async (params: { employee: number; leave_type: LeaveType; start_date: string; end_date: string }) => {
+    const res = await http.get('/api/v1/leave/requests/working-days/', { params });
+    return res.data as WorkingDaysPreview;
+  },
+  getEffectivePolicy: async (leaveType: LeaveType = 'ANNUAL'): Promise<LeavePolicy> => {
+    const res = await http.get('/api/v1/leave/policies/effective/', { params: { leave_type: leaveType } });
+    return res.data;
+  },
+  savePolicy: async (policy: LeavePolicy): Promise<LeavePolicy> => {
+    const data = {
+      leave_type: policy.leave_type,
+      days_per_month: policy.days_per_month,
+      carry_forward_cap: policy.carry_forward_cap,
+      leave_year_start_month: policy.leave_year_start_month,
+      count_working_days: policy.count_working_days,
+      working_weekdays: policy.working_weekdays,
+      allow_negative_balance: policy.allow_negative_balance,
+    };
+    const res = policy.id
+      ? await http.patch(`/api/v1/leave/policies/${policy.id}/`, data)
+      : await http.post('/api/v1/leave/policies/', data);
+    return res.data;
+  },
+  getHolidays: async (year: number): Promise<PublicHoliday[]> => {
+    const res = await http.get('/api/v1/core/public-holidays/', { params: { year, page_size: 100 } });
+    return res.data?.results || res.data;
+  },
+  addHoliday: async (data: { date: string; name: string }): Promise<PublicHoliday> => {
+    const res = await http.post('/api/v1/core/public-holidays/', data);
+    return res.data;
+  },
+  deleteHoliday: async (id: number): Promise<void> => {
+    await http.delete(`/api/v1/core/public-holidays/${id}/`);
+  },
+  seedHolidays: async (year: number) => {
+    const res = await http.post('/api/v1/core/public-holidays/seed/', { year });
+    return res.data as { year: number; created: number };
+  },
+};

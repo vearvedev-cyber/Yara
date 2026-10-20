@@ -7,7 +7,6 @@ import {
   Button,
   Space,
   Tag,
-  Modal,
   Form,
   Input,
   Select,
@@ -15,8 +14,9 @@ import {
   Descriptions,
   Statistic,
   Typography,
-  Alert
+  Alert,
 } from 'antd';
+import { Modal } from '@/components/overlays';
 import {
   PlusOutlined,
   EyeOutlined,

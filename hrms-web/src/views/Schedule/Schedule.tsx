@@ -1,4 +1,5 @@
-import { Calendar, Modal, Form, Input, Select, DatePicker, Button, message, Tag, Tabs, Space, Upload } from 'antd';
+import { Calendar, Form, Input, Select, DatePicker, Button, message, Tag, Tabs, Space, Upload } from 'antd';
+import { Modal } from '@/components/overlays';
 import MobileTable from '../../components/MobileTable';
 import { UploadOutlined } from '@ant-design/icons';
 import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';

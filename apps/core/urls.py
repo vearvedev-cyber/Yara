@@ -12,6 +12,7 @@ from .views import (
 from .custom_role_views import CustomRoleViewSet
 from .messaging_views import ConversationViewSet
 from .profile_views import UserProfileView
+from .holiday_views import PublicHolidayViewSet
 
 app_name = 'core'
 
@@ -26,6 +27,7 @@ router.register(r'custom-roles', CustomRoleViewSet, basename='custom-role')
 router.register(r'conversations', ConversationViewSet, basename='conversation')
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'access-requests', WorkspaceAccessRequestViewSet, basename='access-request')
+router.register(r'public-holidays', PublicHolidayViewSet, basename='public-holiday')
 
 urlpatterns = [
     path('', include(router.urls)),
