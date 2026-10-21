@@ -800,6 +800,18 @@ class PAYEReturn(models.Model):
         
         # Chargeable amount = taxable pay - NAPSA employee contribution (tax-exempt)
         napsa_total = aggregates['napsa_sum'] or Decimal('0')
+
+        # Approved final settlements in this month add their taxable pay and PAYE
+        from .settlement import settlement_statutory, settlements_for_tax_month
+        employee_ids = set(payslips.values_list('employee_id', flat=True))
+        for settlement in settlements_for_tax_month(self.workspace, self.period.year, self.period.month):
+            stat = settlement_statutory(settlement)
+            self.total_gross_pay += stat['taxable_pay']
+            self.total_tax_payable += stat['paye']
+            napsa_total += stat['napsa_employee']
+            employee_ids.add(settlement.employee_id)
+        self.total_employees = len(employee_ids)
+
         self.total_chargeable_amount = self.total_gross_pay - napsa_total
         
         # Tax credit (basic personal relief) - standard K30,600 per month in Zambia
@@ -866,6 +878,33 @@ class PAYEReturn(models.Model):
                 'employee_id': employee.employee_id,
             }
             rows.append(row)
+
+        # Add approved final settlements: merged into the employee's row, or a row of their own
+        from .settlement import settlement_statutory, settlements_for_tax_month
+        by_employee = {row['employee_id']: row for row in rows}
+        for settlement in settlements_for_tax_month(self.workspace, self.period.year, self.period.month):
+            stat = settlement_statutory(settlement)
+            if not (stat['taxable_pay'] or stat['paye']):
+                continue
+            employee = settlement.employee
+            row = by_employee.get(employee.employee_id)
+            if row is None:
+                row = {
+                    'tpin': employee.tpin or '',
+                    'full_name': employee.full_name,
+                    'employee_nature': getattr(employee, 'get_contractor_type_display', lambda: '')(),
+                    'contractor_type': employee.contractor_type,
+                    'gross_pay': Decimal('0'),
+                    'chargeable_amount': Decimal('0'),
+                    'tax_credit': Decimal('30600'),
+                    'tax_payable': Decimal('0'),
+                    'employee_id': employee.employee_id,
+                }
+                rows.append(row)
+                by_employee[employee.employee_id] = row
+            row['gross_pay'] += stat['taxable_pay']
+            row['chargeable_amount'] += stat['taxable_pay'] - stat['napsa_employee']
+            row['tax_payable'] += stat['paye']
         
         # Sort by TPIN or employee name
         rows.sort(key=lambda x: x['tpin'] or x['full_name'])

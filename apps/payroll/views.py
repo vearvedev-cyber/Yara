@@ -767,7 +767,34 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 'nhima_employee': round(nhima_emp, 2),
                 'nhima_employer': round(nhima_empr, 2),
             })
-        
+
+        # Approved final settlements for this month are remitted too
+        from .settlement import settlement_statutory, settlements_for_tax_month
+        settlement_count = 0
+        settlement_gross = 0.0
+        for settlement in settlements_for_tax_month(getattr(request, 'workspace', None), year, month):
+            stat = {k: float(v) for k, v in settlement_statutory(settlement).items()}
+            if not any(stat[k] for k in ('paye', 'napsa_employee', 'napsa_employer', 'nhima_employee', 'nhima_employer')):
+                continue
+            settlement_count += 1
+            settlement_gross += stat['taxable_pay']
+            total_paye += stat['paye']
+            total_napsa_employee += stat['napsa_employee']
+            total_napsa_employer += stat['napsa_employer']
+            total_nhima_employee += stat['nhima_employee']
+            total_nhima_employer += stat['nhima_employer']
+            employee_breakdown.append({
+                'employee_id': settlement.employee.employee_id,
+                'employee_name': f"{settlement.employee.full_name} (final settlement)",
+                'gross_salary': round(stat['taxable_pay'], 2),
+                'paye': round(stat['paye'], 2),
+                'napsa_employee': round(stat['napsa_employee'], 2),
+                'napsa_employer': round(stat['napsa_employer'], 2),
+                'nhima_employee': round(stat['nhima_employee'], 2),
+                'nhima_employer': round(stat['nhima_employer'], 2),
+                'source': 'settlement',
+            })
+
         return Response({
             'period': {'year': year, 'month': month},
             'zra': {
@@ -787,6 +814,8 @@ class PayslipViewSet(viewsets.ModelViewSet):
             'summary': {
                 'total_employees': len(payslips),
                 'total_gross_payroll': round(sum(float(p.gross_salary) for p in payslips), 2),
+                'final_settlements': settlement_count,
+                'final_settlements_taxable_pay': round(settlement_gross, 2),
                 'total_statutory_deductions': round(
                     total_paye + total_napsa_employee + total_nhima_employee, 2
                 ),
@@ -841,9 +870,22 @@ class PayslipViewSet(viewsets.ModelViewSet):
             cell.font = Font(bold=True, color="FFFFFF", size=11)
             cell.alignment = Alignment(horizontal='center', vertical='center')
         
-        # Write employee data
+        # One row per member: payslip plus any approved final settlement this month
+        from .settlement import settlement_statutory, settlements_for_tax_month
+        members = {}
         for p in payslips:
-            emp = p.employee
+            members[p.employee_id] = [p.employee, float(p.gross_salary), float(p.napsa_employee), float(p.napsa_employer)]
+        for settlement in settlements_for_tax_month(getattr(request, 'workspace', None), year, month):
+            stat = settlement_statutory(settlement)
+            if not (stat['napsa_employee'] or stat['napsa_employer']):
+                continue
+            row = members.setdefault(settlement.employee_id, [settlement.employee, 0.0, 0.0, 0.0])
+            row[1] += float(stat['napsa_base'])
+            row[2] += float(stat['napsa_employee'])
+            row[3] += float(stat['napsa_employer'])
+
+        # Write employee data
+        for emp, gross_pay, employee_share, employer_share in members.values():
             # Split name into surname and first name
             name_parts = emp.full_name.split()
             surname = name_parts[-1] if name_parts else ''
@@ -863,9 +905,9 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 first_name.upper(),
                 other_names.upper(),
                 dob,
-                float(p.gross_salary),
-                float(p.napsa_employee),
-                float(p.napsa_employer)
+                gross_pay,
+                employee_share,
+                employer_share,
             ])
         
         # Set column widths for readability
@@ -933,9 +975,22 @@ class PayslipViewSet(viewsets.ModelViewSet):
             cell.font = Font(bold=True, color="FFFFFF", size=11)
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Write employee data
+        # One row per member: payslip plus any approved final settlement this month
+        from .settlement import settlement_statutory, settlements_for_tax_month
+        members = {}
         for p in payslips:
-            emp = p.employee
+            members[p.employee_id] = [p.employee, float(p.gross_salary), float(p.nhima_employee), float(p.nhima_employer)]
+        for settlement in settlements_for_tax_month(getattr(request, 'workspace', None), year, month):
+            stat = settlement_statutory(settlement)
+            if not (stat['nhima_employee'] or stat['nhima_employer']):
+                continue
+            row = members.setdefault(settlement.employee_id, [settlement.employee, 0.0, 0.0, 0.0])
+            row[1] += float(stat['nhima_base'])
+            row[2] += float(stat['nhima_employee'])
+            row[3] += float(stat['nhima_employer'])
+
+        # Write employee data
+        for emp, gross_pay, employee_share, employer_share in members.values():
             # Split name into surname and first name
             name_parts = emp.full_name.split()
             surname = name_parts[-1] if name_parts else ''
@@ -949,9 +1004,9 @@ class PayslipViewSet(viewsets.ModelViewSet):
                 emp.nrc,
                 surname.upper(),
                 first_name.upper(),
-                float(p.gross_salary),
-                float(p.nhima_employee),
-                float(p.nhima_employer)
+                gross_pay,
+                employee_share,
+                employer_share,
             ])
         
         # Set column widths for readability

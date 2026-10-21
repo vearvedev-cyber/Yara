@@ -262,11 +262,14 @@ def calculate_settlement(settlement: FinalSettlement) -> FinalSettlement:
     month_start = last_day.replace(day=1)
     days_in_month = monthrange(last_day.year, last_day.month)[1]
 
+    # The month's payslip (if any): statutory deductions are worked out on the whole
+    # month (payslip + settlement), for exits and contract-end payouts alike.
+    final_month_slip = (Payslip.objects.filter(employee=employee, is_active=True,
+                                               period__year=last_day.year, period__month=last_day.month)
+                        .order_by('-version').first())
+
     if settlement.kind == FinalSettlement.Kind.EXIT:
         # 1. Final month's salary
-        final_month_slip = (Payslip.objects.filter(employee=employee, is_active=True,
-                                                   period__year=last_day.year, period__month=last_day.month)
-                            .order_by('-version').first())
         if final_month_slip:
             notes.append(f"A payslip already covers {last_day:%B %Y}, so the final month's salary isn't repeated here.")
         else:
@@ -378,7 +381,10 @@ def calculate_settlement(settlement: FinalSettlement) -> FinalSettlement:
     nhima_base = sum((l['amount'] for l in earnings if l['nhima']), ZERO)
     already = {'paye': ZERO, 'napsa': ZERO, 'nhima': ZERO, 'napsa_employer': ZERO, 'nhima_employer': ZERO}
     if final_month_slip and (paye_base or napsa_base or nhima_base):
-        slip_gross = Decimal(final_month_slip.gross_salary) - Decimal(final_month_slip.unpaid_leave_deduction or 0)
+        # The payslip's earned pay (unpaid leave and absenteeism aren't earned; any gross-up
+        # is recomputed on the combined month below, so it isn't added here)
+        slip_gross = (Decimal(final_month_slip.gross_salary) - Decimal(final_month_slip.unpaid_leave_deduction or 0)
+                      - Decimal(final_month_slip.absenteeism_deduction or 0))
         paye_base += slip_gross
         napsa_base += slip_gross
         nhima_base += slip_gross
@@ -397,7 +403,8 @@ def calculate_settlement(settlement: FinalSettlement) -> FinalSettlement:
             amount = max(stat[kind] - already[kind], ZERO)
             if not amount:
                 continue
-            row = dict(kind=kind, description=DEDUCTION_KINDS[kind], basis=f"on {_k(base)}", amount=amount, data={})
+            data = {'gross_up': str(stat['paye_gross_up'])} if kind == 'paye' and stat['paye_gross_up'] else {}
+            row = dict(kind=kind, description=DEDUCTION_KINDS[kind], basis=f"on {_k(base)}", amount=amount, data=data)
             if employer_borne:
                 row.update(category=Line.EMPLOYER, description=f"{DEDUCTION_KINDS[kind]} — paid by employer")
             else:
@@ -551,3 +558,46 @@ def cancel_settlement(settlement: FinalSettlement) -> FinalSettlement:
     settlement.status = FinalSettlement.Status.CANCELLED
     settlement.save(update_fields=['status', 'updated_at'])
     return settlement
+
+
+# ---------------------------------------------------------------------------
+# Statutory reporting
+# ---------------------------------------------------------------------------
+
+def settlements_for_tax_month(workspace, year: int, month: int):
+    """Approved or paid settlements whose tax falls in this month: the month of the last
+    working day (the month the settlement is combined with the payslip when calculated)."""
+    if workspace is None:
+        return FinalSettlement.objects.none()
+    return (FinalSettlement.objects
+            .filter(employee__workspace=workspace,
+                    status__in=[FinalSettlement.Status.APPROVED, FinalSettlement.Status.PAID],
+                    last_working_day__year=int(year), last_working_day__month=int(month))
+            .select_related('employee')
+            .prefetch_related('lines'))
+
+
+def settlement_statutory(settlement: FinalSettlement) -> dict:
+    """What a settlement adds to the month's statutory returns: taxable pay (incl. any
+    free-of-tax gross-up), NAPSA and NHIMA bases, and the amounts deducted/contributed.
+    Amounts are on top of the month's payslip (calculate_settlement already nets off
+    what the payslip deducted)."""
+    lines = list(settlement.lines.all())
+
+    def earned(flag):
+        return sum((l.amount for l in lines if l.category == Line.EARNING and getattr(l, flag)), ZERO)
+
+    def total(kind):
+        return sum((l.amount for l in lines if l.kind == kind), ZERO)
+
+    gross_up = sum((Decimal(str(l.data.get('gross_up', '0'))) for l in lines if l.kind == 'paye'), ZERO)
+    return {
+        'taxable_pay': earned('paye') + gross_up,
+        'napsa_base': earned('napsa'),
+        'nhima_base': earned('nhima'),
+        'paye': total('paye'),
+        'napsa_employee': total('napsa'),
+        'napsa_employer': total('napsa_employer'),
+        'nhima_employee': total('nhima'),
+        'nhima_employer': total('nhima_employer'),
+    }

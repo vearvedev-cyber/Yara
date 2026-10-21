@@ -16,6 +16,9 @@ Ticked = done and tested. Updated as work progresses.
 - [x] Tests for all of the above; full backend test suite passes. *(71 tests)*
 - [x] Frontend type-check and build pass.
 - [x] Docs updated (fix backlog in `ERP_IMPLEMENTATION_PLAN.md` §13, payroll posting in the finance doc).
+- [x] **Settlement taxes in statutory reports.** PAYE, NAPSA and NHIMA on approved final settlements are included in that month's PAYE return and remittance report (today only payslips are counted, so they wouldn't be declared).
+- [x] **Contract-end payout PAYE.** A taxable gratuity top-up (above 25%) is taxed together with that month's payslip, not on its own.
+- [x] Commit and push these two fixes.
 
 ## 2. Save the work
 
